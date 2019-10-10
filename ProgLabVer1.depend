@@ -1,0 +1,54 @@
+# depslib dependency file v1.0
+1570395014 source:c:\users\mehmet ali erol\desktop\clessons\proglabver1\main.c
+	<stdio.h>
+	<stdlib.h>
+	<dirent.h>
+	<string.h>
+	<stdbool.h>
+	<ctype.h>
+
+1570698249 source:c:\users\merol\desktop\clessons\proglabver1\main.c
+	<stdio.h>
+	<stdlib.h>
+	<dirent.h>
+	<string.h>
+	<stdbool.h>
+	<ctype.h>
+	"methods.h"
+	"models.h"
+	"consts.h"
+	"enums.h"
+
+1570689914 c:\users\merol\desktop\clessons\proglabver1\methods.h
+	"models.h"
+
+1570689185 c:\users\merol\desktop\clessons\proglabver1\models.h
+
+1570689300 c:\users\merol\desktop\clessons\proglabver1\consts.h
+
+1570689372 c:\users\merol\desktop\clessons\proglabver1\enums.h
+
+1570690451 source:c:\users\merol\desktop\clessons\proglabver1\helpers.c
+	<stdio.h>
+	<stdlib.h>
+	<dirent.h>
+	<string.h>
+	<stdbool.h>
+	<ctype.h>
+	"methods.h"
+	"models.h"
+	"consts.h"
+	"enums.h"
+
+1570690451 c:\users\merol\desktop\clessons\proglabver1\helpers.c
+	<stdio.h>
+	<stdlib.h>
+	<dirent.h>
+	<string.h>
+	<stdbool.h>
+	<ctype.h>
+	"methods.h"
+	"models.h"
+	"consts.h"
+	"enums.h"
+
