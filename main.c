@@ -20,13 +20,12 @@
 Document *DocumentsInMemory;
 struct ErrorLinkList *HeadError = NULL;
 int ErrorCount = 0;
+int FileCount = 0;
 
 int main()
 {
     StartReading();
 
-    //Program hemen kapanmasın diye bekletiliyor.
-    getchar();
     return 0;
 }
 
@@ -112,8 +111,10 @@ void ReadDocumentsInDirectory(char directoryPath[], char fileExtention[])
 
     DocumentsInMemory = malloc(filesArray);
     DocumentsInMemory = filesArray;
-    //Tüm işlemler bittiğinde modeldeki veriler ekrana basılıyor.
-    PrintDocuments(fileIndex);
+
+    FileCount = fileIndex;
+
+    CreateUserInterface();
 }
 
 //İstenen dökümanı okuma ve belleğe yazma işini yapar.
@@ -145,6 +146,7 @@ Document ReadDocument(char *filePath, char *fileName)
    documentItem.isWithRGB = false;
    documentItem.currentFileName = malloc(fileName);
    documentItem.currentFileName = fileName;
+   documentItem.isCalculated = false;
 
    //Boşluk ile split edilecek datalarda hangi alanda olduğunu bilmek için kullanılan index
    int tempIndex = 0;
@@ -416,6 +418,7 @@ Document ReadDocumentDataPart(char *filePath, Document docItem, DocumentDataMode
             finalDataPointer[i].g = finalDataModel[i].g;
             finalDataPointer[i].b = finalDataModel[i].b;
         }
+        finalDataPointer[i].lineNumber = i+1;
    }
 
    //döküman modelinin içindeki dataitem'a array ataması yapılıyor.
@@ -425,52 +428,261 @@ Document ReadDocumentDataPart(char *filePath, Document docItem, DocumentDataMode
    return docItem;
 }
 
-void PrintDocuments(int fileCount)
+void CreateUserInterface()
 {
-    printf("\n!! -- Hata Listesi -- !!\n");
-    ErrorLinkList *current_node = HeadError;
-   	while ( current_node != NULL)
+    int operationCode = GetOperationCodeFromUser();
+
+    switch(operationCode)
     {
-        ErrorMessage messageToPrint = current_node->data;
-        if(messageToPrint.errorCode == NoRgb)
-        {
-            printf("(%s) - %d. %s\n", messageToPrint.errorFileName, messageToPrint.errorLineNumber, LineNoRgbError);
-        }
-        else if(messageToPrint.errorCode == WithRgb)
-        {
-            printf("(%s) - %d. %s\n", messageToPrint.errorFileName, messageToPrint.errorLineNumber, LineRgbError);
-        }
-        else
-        {
-            printf("%s %s", messageToPrint.errorFileName, messageToPrint.errorMessageTest);
-        }
-        current_node = current_node->next;
+        case 1:
+            OperationOne();
+            break;
+        case 2:
+            OperationTwo();
+            break;
+        case 3:
+            OperationThree();
+            break;
+        case 4:
+            OperationFour();
+            break;
+        case 5:
+            OperationFive();
+            break;
+        default:
+            printf("Gecerli bir operasyon girilmedi!");
+            break;
     }
 
-    printf("\n>> -- Dosya Listesi -- <<\n");
-    for(int j = 0; j < fileCount; j++)
+    char answer = "";
+    printf("\nYeniden islem girmek ister misiniz? Y/N : ");
+    scanf("%c", &answer);
+    getchar();
+
+    if(tolower(answer) == 'y')
     {
-        printf("------ %s ------\n", DocumentsInMemory[j].currentFileName);
+        CreateUserInterface();
+    }
+}
 
-        printf("Version : %d\n", DocumentsInMemory[j].version);
-        printf("PointCount : %d\n", DocumentsInMemory[j].pointCount);
-        printf("IsWithRGB : %d\n", DocumentsInMemory[j].isWithRGB);
-        printf("IsASCII : %d\n", DocumentsInMemory[j].isAscii);
-        printf("Biggest X : %f - Biggest Y : %f - Biggest Z : %f\n", DocumentsInMemory[j].biggestX, DocumentsInMemory[j].biggestY, DocumentsInMemory[j].biggestZ);
-        printf("Lowest X : %f - Lowest Y : %f - Lowest Z : %f\n", DocumentsInMemory[j].lowestX, DocumentsInMemory[j].lowestY, DocumentsInMemory[j].lowestZ);
+int GetOperationCodeFromUser()
+{
+    printf("\nIslem listesi : ");
+    printf("\n( 1-) Dosya Kontrolu");
+    printf(" | ( 2-) En Yakin/En Uzak Noktalar");
+    printf(" | ( 3-) Kup");
+    printf(" | ( 4-) Kure");
+    printf(" | ( 5-) Nokta Uzakliklari\n");
+    int operationCode = 1;
+    do
+    {
+        printf("Lutfen gecerli bir islem tipi giriniz : ");
+        scanf("%d", &operationCode);
+        while(getchar() != '\n');
+    }
+    while(operationCode > 5 || operationCode < 1);
 
+    return operationCode;
+}
+
+void OperationOne()
+{
+    ErrorLinkList *current_node = HeadError;
+    if(HeadError != NULL)
+    {
+        printf("\nISLEM 1\n");
+        while (current_node != NULL)
+        {
+            ErrorMessage messageToPrint = current_node->data;
+            if(messageToPrint.errorCode == NoRgb)
+            {
+                printf("(%s) - %d. %s\n", messageToPrint.errorFileName, messageToPrint.errorLineNumber, LineNoRgbError);
+            }
+            else if(messageToPrint.errorCode == WithRgb)
+            {
+                printf("(%s) - %d. %s\n", messageToPrint.errorFileName, messageToPrint.errorLineNumber, LineRgbError);
+            }
+            else
+            {
+                printf("%s %s", messageToPrint.errorFileName, messageToPrint.errorMessageTest);
+            }
+            current_node = current_node->next;
+        }
+    }
+    else
+    {
+        printf("Tüm dosyalar uyumludur.");
+    }
+}
+
+void OperationTwo()
+{
+    if(sizeof(DocumentsInMemory) > 0)
+    {
+        CalcDistance(2);
+    }
+    else
+    {
+        printf("Okunmus dosya bulunmuyor.");
+    }
+}
+
+void OperationThree()
+{
+    if(sizeof(DocumentsInMemory) > 0)
+    {
+        printf("\nISLEM 3\n");
+    }
+    else
+    {
+        printf("Okunmus dosya bulunmuyor.");
+    }
+}
+
+void OperationFour()
+{
+    if(sizeof(DocumentsInMemory) > 0)
+    {
+        float sphereX, sphereY, sphereZ, sphereR;
+        printf("\nISLEM 4\n");
+        printf("Lutfen kurenin x degerini giriniz : ");
+        scanf("%f", &sphereX);
+        printf("Lutfen kurenin y degerini giriniz : ");
+        scanf("%f", &sphereY);
+        printf("Lutfen kurenin z degerini giriniz : ");
+        scanf("%f", &sphereZ);
+        printf("Lutfen kurenin yaricapini giriniz : ");
+        scanf("%f", &sphereR);
+        while(getchar() != '\n');
+
+        printf("Girdiginiz X : %f - Y : %f - Z : %f - R : %f", sphereX, sphereY, sphereZ, sphereR);
+    }
+    else
+    {
+        printf("Okunmus dosya bulunmuyor.");
+    }
+}
+
+void OperationFive()
+{
+    if(sizeof(DocumentsInMemory) > 0)
+    {
+        CalcDistance(5);
+    }
+    else
+    {
+        printf("Okunmus dosya bulunmuyor.");
+    }
+}
+
+void CalcDistance(int operationType)
+{
+    int avgIndex = 0;
+    printf("\nISLEM %d\n", operationType);
+    for(int j = 0; j < FileCount; j++)
+    {
         if(DocumentsInMemory[j].realPointCount == DocumentsInMemory[j].pointCount)
         {
-            for(int i = 0; i < DocumentsInMemory[j].pointCount; i++)
+            if(DocumentsInMemory[j].isCalculated == false)
             {
-                printf("X:%f -", DocumentsInMemory[j].itemData[i].x);
-                printf("Y:%f - ", DocumentsInMemory[j].itemData[i].y);
-                printf("Z:%f - ", DocumentsInMemory[j].itemData[i].z);
-                printf("R:%d - ", DocumentsInMemory[j].itemData[i].r);
-                printf("G:%d - ", DocumentsInMemory[j].itemData[i].g);
-                printf("B:%d\n", DocumentsInMemory[j].itemData[i].b);
+                avgIndex = 0;
+                DocumentsInMemory[j].itemsAvg = 0.00;
+                int tempMinCalculation = 0;
+                int tempMaxCalculation = 0;
+
+                for(int i = 0; i < DocumentsInMemory[j].pointCount; i++) //nokta sayısı kadar dön
+                {
+                    for(int k = i+1; k < DocumentsInMemory[j].pointCount; k++)// fazladan dönmemek için her seferinde başlangıcı i+1 kadar yap zaten ondan onceki noktayı karşılaştırmıştın
+                    {
+                        if(i == 0)
+                        {
+                            float calculationResult = sqrt((pow(DocumentsInMemory[j].itemData[i].x-DocumentsInMemory[j].itemData[k].x,2)) +
+                                                           (pow(DocumentsInMemory[j].itemData[i].y-DocumentsInMemory[j].itemData[k].y,2)) +
+                                                           (pow(DocumentsInMemory[j].itemData[i].z-DocumentsInMemory[j].itemData[k].z,2)));
+
+                            DocumentsInMemory[j].itemsAvg = calculationResult;
+
+                            tempMinCalculation = calculationResult;
+                            tempMaxCalculation = calculationResult;
+
+                            DocumentsInMemory[j].nearestList[0] = DocumentsInMemory[j].itemData[i];
+                            DocumentsInMemory[j].nearestList[1] = DocumentsInMemory[j].itemData[k];
+
+                            DocumentsInMemory[j].farthestList[0] = DocumentsInMemory[j].itemData[k];
+                            DocumentsInMemory[j].farthestList[1] = DocumentsInMemory[j].itemData[i];
+                        }
+                        else
+                        {
+                            float calculationResult = sqrt((pow(DocumentsInMemory[j].itemData[i].x-DocumentsInMemory[j].itemData[k].x,2)) +
+                                                           (pow(DocumentsInMemory[j].itemData[i].y-DocumentsInMemory[j].itemData[k].y,2)) +
+                                                           (pow(DocumentsInMemory[j].itemData[i].z-DocumentsInMemory[j].itemData[k].z,2)));
+
+                            if(calculationResult<0){calculationResult *= (-1);}
+
+                            DocumentsInMemory[j].itemsAvg += calculationResult;
+
+                            if(calculationResult < tempMinCalculation) //hesaplama gecici en küçük değerden küçük mü
+                            {
+                                DocumentsInMemory[j].nearestList[0] = DocumentsInMemory[j].itemData[i];
+                                DocumentsInMemory[j].nearestList[1] = DocumentsInMemory[j].itemData[k];
+                                tempMinCalculation = calculationResult;
+                            }
+                            if(calculationResult > tempMaxCalculation) //hesaplama gecici en büyük değerden büyük mü
+                            {
+                                DocumentsInMemory[j].farthestList[0] = DocumentsInMemory[j].itemData[k];
+                                DocumentsInMemory[j].farthestList[1] = DocumentsInMemory[j].itemData[i];
+                                tempMaxCalculation = tempMaxCalculation;
+                            }
+                        }
+
+                        avgIndex++;
+                    }
+                }
+
+                DocumentsInMemory[j].itemsAvg = DocumentsInMemory[j].itemsAvg / avgIndex;
+                DocumentsInMemory[j].isCalculated = true;
+
+                PrintCalcDistance(DocumentsInMemory[j], operationType);
+            }
+            else
+            {
+                PrintCalcDistance(DocumentsInMemory[j], operationType);
             }
         }
+    }
+}
+
+void PrintCalcDistance(Document doc, int operationType)
+{
+    if(operationType == 2)
+    {
+        printf("(%s) En Yakin Nokta (%d. Satir):%f %f %f %d %d %d\n",
+            doc.currentFileName, doc.nearestList[0].lineNumber,
+            doc.nearestList[0].x, doc.nearestList[0].y,
+            doc.nearestList[0].z, doc.nearestList[0].r,
+            doc.nearestList[0].g, doc.nearestList[0].b);
+
+        printf("(%s) En Yakin Nokta (%d. Satir):%f %f %f %d %d %d\n",
+            doc.currentFileName, doc.nearestList[1].lineNumber,
+            doc.nearestList[1].x, doc.nearestList[1].y,
+            doc.nearestList[1].z, doc.nearestList[1].r,
+            doc.nearestList[1].g, doc.nearestList[1].b);
+
+        printf("(%s) En Yakin Nokta (%d. Satir):%f %f %f %d %d %d\n",
+            doc.currentFileName, doc.farthestList[0].lineNumber,
+            doc.farthestList[0].x, doc.farthestList[0].y,
+            doc.farthestList[0].z, doc.farthestList[0].r,
+            doc.farthestList[0].g, doc.farthestList[0].b);
+
+        printf("(%s) En Yakin Nokta (%d. Satir):%f %f %f %d %d %d\n\n",
+            doc.currentFileName,   doc.farthestList[1].lineNumber,
+            doc.farthestList[1].x, doc.farthestList[1].y,
+            doc.farthestList[1].z, doc.farthestList[1].r,
+            doc.farthestList[1].g, doc.farthestList[1].b);
+    }
+    else if(operationType == 5)
+    {
+        printf("(%s) Noktalar arasi ortalama uzaklik : %f\n", doc.currentFileName, doc.itemsAvg);
     }
 }
 
