@@ -7,7 +7,7 @@
 	<stdbool.h>
 	<ctype.h>
 
-1570690465 source:c:\users\merol\desktop\clessons\proglabver1\main.c
+1571048062 source:c:\users\merol\desktop\clessons\proglabver1\main.c
 	<stdio.h>
 	<stdlib.h>
 	<dirent.h>
@@ -18,12 +18,11 @@
 	"models.h"
 	"consts.h"
 	"enums.h"
-	"helpers.c"
 
-1570689914 c:\users\merol\desktop\clessons\proglabver1\methods.h
+1571040135 c:\users\merol\desktop\clessons\proglabver1\methods.h
 	"models.h"
 
-1570689185 c:\users\merol\desktop\clessons\proglabver1\models.h
+1571036205 c:\users\merol\desktop\clessons\proglabver1\models.h
 
 1570689300 c:\users\merol\desktop\clessons\proglabver1\consts.h
 
@@ -52,4 +51,25 @@
 	"models.h"
 	"consts.h"
 	"enums.h"
+
+1570992899 source:c:\users\mehmet ali erol\desktop\proglabver1\main.c
+	<stdio.h>
+	<stdlib.h>
+	<dirent.h>
+	<string.h>
+	<stdbool.h>
+	<ctype.h>
+	"methods.h"
+	"models.h"
+	"consts.h"
+	"enums.h"
+
+1570992199 c:\users\mehmet ali erol\desktop\proglabver1\methods.h
+	"models.h"
+
+1570988045 c:\users\mehmet ali erol\desktop\proglabver1\models.h
+
+1570689300 c:\users\mehmet ali erol\desktop\proglabver1\consts.h
+
+1570689372 c:\users\mehmet ali erol\desktop\proglabver1\enums.h
 

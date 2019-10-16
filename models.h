@@ -21,6 +21,7 @@ typedef struct {
    int r;
    int g;
    int b;
+   int lineNumber;
 } DocumentDataModel;
 
 //Dökümanlarýn saklanacaðý model
@@ -31,12 +32,16 @@ typedef struct {
    int  realPointCount;
    bool isAscii;
    bool isWithRGB;
+   bool isCalculated;
    float biggestX;
    float biggestY;
    float biggestZ;
    float lowestX;
    float lowestY;
    float lowestZ;
+   float itemsAvg;
+   DocumentDataModel nearestList[2];
+   DocumentDataModel farthestList[2];
    DocumentDataModel *itemData;
 } Document;
 
