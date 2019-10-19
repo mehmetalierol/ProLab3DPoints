@@ -4,7 +4,9 @@
 //Proje içerisinde kullanýlacak sabit deðerler
 const char *FileExtention = ".nkt";
 const char *DirectoryPath = "C://DataFiles";
+const char *OutputPath = "C://DataFiles/output.nkt";
 const char *CheckAscii = "ascii";
+const char *OutputFileName = "output.nkt";
 
 //hata mesajlarý
 const char *FilePointCountWrong = " dosyasindaki nokta sayisi gecerli degildir.\n";
