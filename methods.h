@@ -20,5 +20,8 @@ void PrintCalcDistance(Document doc, int operationType);
 int GetDatacount(char *filePath);
 int GetFileCount(char directoryPath[], char fileExtention[]);
 void PushError(char *fileName, int lineNumber, char *message, int code);
+char * ConcateString(char *str1, char *str2, char *str3, char *str4);
+void CreateOutputFile();
+void SaveOutput();
 
 #endif // METHODS_H_INCLUDED

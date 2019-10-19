@@ -21,11 +21,13 @@ Document *DocumentsInMemory;
 struct ErrorLinkList *HeadError = NULL;
 int ErrorCount = 0;
 int FileCount = 0;
+int OutputLineNumber = 0;
+FILE *OutputFile;
 
 int main()
 {
+    CreateOutputFile();
     StartReading();
-
     return 0;
 }
 
@@ -82,7 +84,7 @@ void ReadDocumentsInDirectory(char directoryPath[], char fileExtention[])
           if(ext)
           {
               //Uzantı kontrol ediliyor
-              if(strcmp(ext, FileExtention) == 0)
+              if(strcmp(ext, FileExtention) == 0 && strcmp(tolower(fileName), OutputFileName) != 0)
               {
                   //dosyanın tam yolu hesaplanıyor
                   char *fullPath = (char *) malloc(1 + strlen(directoryPath)+ strlen(fileName) );
@@ -463,6 +465,10 @@ void CreateUserInterface()
     {
         CreateUserInterface();
     }
+    else
+    {
+        fclose(OutputFile);
+    }
 }
 
 int GetOperationCodeFromUser()
@@ -473,7 +479,7 @@ int GetOperationCodeFromUser()
     printf(" | ( 3-) Kup");
     printf(" | ( 4-) Kure");
     printf(" | ( 5-) Nokta Uzakliklari\n");
-    int operationCode = 1;
+    int operationCode = 0;
     do
     {
         printf("Lutfen gecerli bir islem tipi giriniz : ");
@@ -487,32 +493,51 @@ int GetOperationCodeFromUser()
 
 void OperationOne()
 {
+    fprintf (OutputFile, "\nISLEM 1\n",OutputLineNumber);
+    printf("\nISLEM 1\n");
     ErrorLinkList *current_node = HeadError;
     if(HeadError != NULL)
     {
-        printf("\nISLEM 1\n");
+        OutputLineNumber++;
         while (current_node != NULL)
         {
             ErrorMessage messageToPrint = current_node->data;
             if(messageToPrint.errorCode == NoRgb)
             {
+                char *finalString = ConcateString("(", messageToPrint.errorFileName, ") ", messageToPrint.errorLineNumber);
+                finalString = ConcateString(finalString, ". ", LineNoRgbError, " ");
+                fprintf (OutputFile, finalString ,OutputLineNumber);
+
                 printf("(%s) - %d. %s\n", messageToPrint.errorFileName, messageToPrint.errorLineNumber, LineNoRgbError);
+                OutputLineNumber++;
             }
             else if(messageToPrint.errorCode == WithRgb)
             {
+                char *finalString = ConcateString("(", messageToPrint.errorFileName, ") ", messageToPrint.errorLineNumber);
+                finalString = ConcateString(finalString, ". ", LineRgbError, " ");
+                fprintf (OutputFile, finalString ,OutputLineNumber);
+
                 printf("(%s) - %d. %s\n", messageToPrint.errorFileName, messageToPrint.errorLineNumber, LineRgbError);
+                OutputLineNumber++;
             }
             else
             {
+                char *finalString = ConcateString(messageToPrint.errorFileName, " ", messageToPrint.errorMessageTest, " ");
+                fprintf (OutputFile, finalString ,OutputLineNumber);
+
                 printf("%s %s", messageToPrint.errorFileName, messageToPrint.errorMessageTest);
+                OutputLineNumber++;
             }
             current_node = current_node->next;
         }
     }
     else
     {
+        fprintf (OutputFile, "Tüm dosyalar uyumludur.",OutputLineNumber);
         printf("Tüm dosyalar uyumludur.");
+        OutputLineNumber++;
     }
+    SaveOutput();
 }
 
 void OperationTwo()
@@ -544,6 +569,8 @@ void OperationFour()
     if(sizeof(DocumentsInMemory) > 0)
     {
         float sphereX, sphereY, sphereZ, sphereR;
+        fprintf (OutputFile, "\nISLEM 4\n" ,OutputLineNumber);
+        OutputLineNumber++;
         printf("\nISLEM 4\n");
         printf("Lutfen kurenin x degerini giriniz : ");
         scanf("%f", &sphereX);
@@ -555,6 +582,13 @@ void OperationFour()
         scanf("%f", &sphereR);
         while(getchar() != '\n');
 
+        //TO DO. gerekli matematiksel işlemler çalıştırılacak ve dosya içindeki veriler outputa yazılacak
+
+        char buf[256];
+        sprintf(buf,"cx : (%f)\ncy : (%f)\ncz : (%f)\ncr : (%f)\nALANLAR x y z r g b\nNOKTALAR 123\nDATA ascii\n",
+                 sphereX, sphereY, sphereZ, sphereR);
+        fprintf (OutputFile, buf ,OutputLineNumber);
+        OutputLineNumber++;
         printf("Girdiginiz X : %f - Y : %f - Z : %f - R : %f", sphereX, sphereY, sphereZ, sphereR);
     }
     else
@@ -578,6 +612,10 @@ void OperationFive()
 void CalcDistance(int operationType)
 {
     int avgIndex = 0;
+    char buf[7];
+    sprintf(buf,"%d", operationType);
+    char *finalString = ConcateString("\nISLEM ", buf, "\n",  "");
+    fprintf (OutputFile, finalString ,OutputLineNumber);
     printf("\nISLEM %d\n", operationType);
     for(int j = 0; j < FileCount; j++)
     {
@@ -656,11 +694,28 @@ void PrintCalcDistance(Document doc, int operationType)
 {
     if(operationType == 2)
     {
+        char buf[256];
+        sprintf(buf,"(%s) En Yakin Nokta (%d. Satir):%f %f %f %d %d %d\n",
+            doc.currentFileName, doc.nearestList[0].lineNumber,
+            doc.nearestList[0].x, doc.nearestList[0].y,
+            doc.nearestList[0].z, doc.nearestList[0].r,
+            doc.nearestList[0].g, doc.nearestList[0].b);
+        fprintf (OutputFile, buf ,OutputLineNumber);
+        OutputLineNumber++;
+
         printf("(%s) En Yakin Nokta (%d. Satir):%f %f %f %d %d %d\n",
             doc.currentFileName, doc.nearestList[0].lineNumber,
             doc.nearestList[0].x, doc.nearestList[0].y,
             doc.nearestList[0].z, doc.nearestList[0].r,
             doc.nearestList[0].g, doc.nearestList[0].b);
+
+        sprintf(buf,"(%s) En Yakin Nokta (%d. Satir):%f %f %f %d %d %d\n",
+            doc.currentFileName, doc.nearestList[1].lineNumber,
+            doc.nearestList[1].x, doc.nearestList[1].y,
+            doc.nearestList[1].z, doc.nearestList[1].r,
+            doc.nearestList[1].g, doc.nearestList[1].b);
+        fprintf (OutputFile, buf ,OutputLineNumber);
+        OutputLineNumber++;
 
         printf("(%s) En Yakin Nokta (%d. Satir):%f %f %f %d %d %d\n",
             doc.currentFileName, doc.nearestList[1].lineNumber,
@@ -668,11 +723,27 @@ void PrintCalcDistance(Document doc, int operationType)
             doc.nearestList[1].z, doc.nearestList[1].r,
             doc.nearestList[1].g, doc.nearestList[1].b);
 
+        sprintf(buf,"(%s) En Yakin Nokta (%d. Satir):%f %f %f %d %d %d\n",
+            doc.currentFileName, doc.farthestList[0].lineNumber,
+            doc.farthestList[0].x, doc.farthestList[0].y,
+            doc.farthestList[0].z, doc.farthestList[0].r,
+            doc.farthestList[0].g, doc.farthestList[0].b);
+        fprintf (OutputFile, buf ,OutputLineNumber);
+        OutputLineNumber++;
+
         printf("(%s) En Yakin Nokta (%d. Satir):%f %f %f %d %d %d\n",
             doc.currentFileName, doc.farthestList[0].lineNumber,
             doc.farthestList[0].x, doc.farthestList[0].y,
             doc.farthestList[0].z, doc.farthestList[0].r,
             doc.farthestList[0].g, doc.farthestList[0].b);
+
+        sprintf(buf,"(%s) En Yakin Nokta (%d. Satir):%f %f %f %d %d %d\n",
+            doc.currentFileName, doc.farthestList[1].lineNumber,
+            doc.farthestList[1].x, doc.farthestList[1].y,
+            doc.farthestList[1].z, doc.farthestList[1].r,
+            doc.farthestList[1].g, doc.farthestList[1].b);
+        fprintf (OutputFile, buf ,OutputLineNumber);
+        OutputLineNumber++;
 
         printf("(%s) En Yakin Nokta (%d. Satir):%f %f %f %d %d %d\n\n",
             doc.currentFileName,   doc.farthestList[1].lineNumber,
@@ -682,8 +753,13 @@ void PrintCalcDistance(Document doc, int operationType)
     }
     else if(operationType == 5)
     {
+        char buf[7];
+        sprintf(buf,"%f", doc.itemsAvg);
+        char *finalString = ConcateString("(", doc.currentFileName, ") Noktalar arasi ortalama uzaklik : ",  buf);
+        fprintf (OutputFile, finalString ,OutputLineNumber);
         printf("(%s) Noktalar arasi ortalama uzaklik : %f\n", doc.currentFileName, doc.itemsAvg);
     }
+    SaveOutput();
 }
 
 //istenen dökümanın içindeki satır sayısını getirir
@@ -752,8 +828,9 @@ int GetFileCount(char directoryPath[], char fileExtention[])
           char *ext = strrchr(fileName,'.');
           if(ext)
           {
+
               //uzantı en üstte tanımlanan değişkenle eşleşiyor mu diye kontrol ediliyor.
-              if(strcmp(ext, FileExtention) == 0)
+              if(strcmp(ext, FileExtention) == 0 && strcmp(tolower(fileName), OutputFileName) != 0)
               {
                   //eşleşen dosyalar için index 1 artırılıyor.
                   fileCount++;
@@ -788,3 +865,27 @@ void PushError(char *fileName, int lineNumber, char *message, int code)
     node->next = HeadError;
     HeadError = node;
 }
+
+void CreateOutputFile()
+{
+    FILE * fp;
+    fp = fopen (OutputPath,"w");
+    OutputFile = fp;
+}
+
+void SaveOutput()
+{
+    fclose(OutputFile);
+    OutputFile = fopen (OutputPath,"a");
+}
+
+char * ConcateString(char *str1, char *str2, char *str3, char *str4)
+{
+    char *result = malloc(strlen(str1) + strlen(str2) + strlen(str3) + strlen(str4) + 10);
+    strcpy(result, str1);
+    strcat(result, str2);
+    strcat(result, str3);
+    strcat(result, str4);
+    return result;
+}
+
