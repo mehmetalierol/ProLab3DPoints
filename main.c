@@ -556,6 +556,8 @@ void OperationThree()
 {
     if(sizeof(DocumentsInMemory) > 0)
     {
+        fprintf (OutputFile, "\nISLEM 3\n" ,OutputLineNumber);
+        OutputLineNumber++;
         printf("\nISLEM 3\n");
     }
     else
@@ -585,11 +587,70 @@ void OperationFour()
         //TO DO. gerekli matematiksel işlemler çalıştırılacak ve dosya içindeki veriler outputa yazılacak
 
         char buf[256];
-        sprintf(buf,"cx : (%f)\ncy : (%f)\ncz : (%f)\ncr : (%f)\nALANLAR x y z r g b\nNOKTALAR 123\nDATA ascii\n",
+        sprintf(buf,"cx : (%f)\ncy : (%f)\ncz : (%f)\ncr : (%f)\n",
                  sphereX, sphereY, sphereZ, sphereR);
         fprintf (OutputFile, buf ,OutputLineNumber);
         OutputLineNumber++;
         printf("Girdiginiz X : %f - Y : %f - Z : %f - R : %f", sphereX, sphereY, sphereZ, sphereR);
+
+        printf("test1 %d\n", FileCount);
+        for(int j = 0; j < FileCount; j++)
+        {
+            if(DocumentsInMemory[j].realPointCount == DocumentsInMemory[j].pointCount)
+            {
+                char fields[12] = "x y z";
+                if(DocumentsInMemory[j].isWithRGB){strcpy(fields,"x y z r g b");}
+                char dataType[7] = "ascii";
+                if(!DocumentsInMemory[j].isAscii){strcpy(dataType, "binary");}
+
+                printf("\nDOSYA : %s\nALANLAR : %s\nNOKTALAR : %d\nDATA : %s\n",
+                DocumentsInMemory[j].currentFileName, fields, DocumentsInMemory[j].pointCount, dataType);
+
+                sprintf(buf,"DOSYA : %s\nALANLAR : (%s)\nNOKTALAR : (%d)\nDATA : (%s)\n",
+                DocumentsInMemory[j].currentFileName, fields, DocumentsInMemory[j].pointCount, dataType);
+                fprintf (OutputFile, buf ,OutputLineNumber);
+                OutputLineNumber++;
+
+                for(int i = 0; i < DocumentsInMemory[j].pointCount; i++) //nokta sayısı kadar dön
+                {
+                    float sonuc= sqrt((pow(sphereX-DocumentsInMemory[j].itemData[i].x,2)) +
+                                      (pow(sphereY-DocumentsInMemory[j].itemData[i].y,2)) +
+                                      (pow(sphereZ-DocumentsInMemory[j].itemData[i].z,2)));
+
+                    if(sonuc < sphereR)
+                    {
+                        if(DocumentsInMemory[j].isWithRGB)
+                        {
+                            sprintf(buf,"%d. Satir %f %f %f %d %d %d\n",
+                                   DocumentsInMemory[j].itemData[i].lineNumber, DocumentsInMemory[j].itemData[i].x,
+                                   DocumentsInMemory[j].itemData[i].y, DocumentsInMemory[j].itemData[i].z,
+                                   DocumentsInMemory[j].itemData[i].r, DocumentsInMemory[j].itemData[i].g,
+                                   DocumentsInMemory[j].itemData[i].b);
+                            fprintf (OutputFile, buf ,OutputLineNumber);
+                            OutputLineNumber++;
+
+                            printf("%d. Satir %f %f %f %d %d %d\n",
+                                   DocumentsInMemory[j].itemData[i].lineNumber, DocumentsInMemory[j].itemData[i].x,
+                                   DocumentsInMemory[j].itemData[i].y, DocumentsInMemory[j].itemData[i].z,
+                                   DocumentsInMemory[j].itemData[i].r, DocumentsInMemory[j].itemData[i].g,
+                                   DocumentsInMemory[j].itemData[i].b);
+                        }
+                        else
+                        {
+                            sprintf(buf,"%d. Satir %f %f %f\n",
+                                   DocumentsInMemory[j].itemData[i].lineNumber, DocumentsInMemory[j].itemData[i].x,
+                                   DocumentsInMemory[j].itemData[i].y, DocumentsInMemory[j].itemData[i].z);
+                            fprintf (OutputFile, buf ,OutputLineNumber);
+                            OutputLineNumber++;
+
+                            printf("%d. Satir %f %f %f\n",
+                                   DocumentsInMemory[j].itemData[i].lineNumber, DocumentsInMemory[j].itemData[i].x,
+                                   DocumentsInMemory[j].itemData[i].y, DocumentsInMemory[j].itemData[i].z);
+                        }
+                    }
+                }
+            }
+        }
     }
     else
     {
@@ -654,8 +715,6 @@ void CalcDistance(int operationType)
                             float calculationResult = sqrt((pow(DocumentsInMemory[j].itemData[i].x-DocumentsInMemory[j].itemData[k].x,2)) +
                                                            (pow(DocumentsInMemory[j].itemData[i].y-DocumentsInMemory[j].itemData[k].y,2)) +
                                                            (pow(DocumentsInMemory[j].itemData[i].z-DocumentsInMemory[j].itemData[k].z,2)));
-
-                            if(calculationResult<0){calculationResult *= (-1);}
 
                             DocumentsInMemory[j].itemsAvg += calculationResult;
 
