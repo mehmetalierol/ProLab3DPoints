@@ -23,11 +23,12 @@ int ErrorCount = 0;
 int FileCount = 0;
 int OutputLineNumber = 0;
 FILE *OutputFile;
+char *OutputFullPath;
 
 int main()
 {
-    CreateOutputFile();
     StartReading();
+    fclose(OutputFile);
     return 0;
 }
 
@@ -36,14 +37,17 @@ void StartReading()
     char applicationPath[256];
     if (getcwd(applicationPath, sizeof(applicationPath)) != NULL)
     {
-       printf("Uygulama Dizini : %s\n", applicationPath);
-       int appDirectoryFileCount = GetFileCount(DirectoryPath, FileExtention);
+       DirectoryPath = malloc(sizeof(applicationPath));
+       DirectoryPath = applicationPath;
+       CreateOutputFile();
+       printf("Uygulama Dizini : %s\n", DirectoryPath);
+       int appDirectoryFileCount = GetFileCount(applicationPath, FileExtention);
        if(appDirectoryFileCount > 0)
        {
            printf("Dizinde toplam %d adet %s dosyasi bulundu!\n", appDirectoryFileCount, FileExtention);
 
            //Hiyerarşik şekilde çalışması için ilk metod çağırılıyor.
-           ReadDocumentsInDirectory(DirectoryPath, FileExtention);
+           ReadDocumentsInDirectory(applicationPath, FileExtention);
        }
        else
        {
@@ -928,14 +932,19 @@ void PushError(char *fileName, int lineNumber, char *message, int code)
 void CreateOutputFile()
 {
     FILE * fp;
-    fp = fopen (OutputPath,"w");
+    OutputFullPath = malloc(strlen(DirectoryPath) + strlen(OutputFileName) + 2);
+    strcpy(OutputFullPath, DirectoryPath);
+    strcat(OutputFullPath, "\\");
+    strcat(OutputFullPath, OutputFileName);
+
+    fp = fopen (OutputFullPath,"w");
     OutputFile = fp;
 }
 
 void SaveOutput()
 {
     fclose(OutputFile);
-    OutputFile = fopen (OutputPath,"a");
+    OutputFile = fopen (OutputFullPath,"a");
 }
 
 char * ConcateString(char *str1, char *str2, char *str3, char *str4)
