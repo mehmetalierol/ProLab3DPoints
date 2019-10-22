@@ -37,17 +37,17 @@ void StartReading()
     char applicationPath[256];
     if (getcwd(applicationPath, sizeof(applicationPath)) != NULL)
     {
-       DirectoryPath = malloc(sizeof(applicationPath));
-       DirectoryPath = applicationPath;
+       // = malloc(sizeof(applicationPath));
+       //DirectoryPath = applicationPath;
        CreateOutputFile();
        printf("Uygulama Dizini : %s\n", DirectoryPath);
-       int appDirectoryFileCount = GetFileCount(applicationPath, FileExtention);
+       int appDirectoryFileCount = GetFileCount(DirectoryPath, FileExtention);
        if(appDirectoryFileCount > 0)
        {
            printf("Dizinde toplam %d adet %s dosyasi bulundu!\n", appDirectoryFileCount, FileExtention);
 
            //Hiyerarşik şekilde çalışması için ilk metod çağırılıyor.
-           ReadDocumentsInDirectory(applicationPath, FileExtention);
+           ReadDocumentsInDirectory(DirectoryPath, FileExtention);
        }
        else
        {
@@ -321,6 +321,7 @@ Document ReadDocumentDataPart(char *filePath, Document docItem, DocumentDataMode
 
                     //lowest hesaplanırken eğer ilk satır ise atama yapılıyor değilse değer korunuyor.
                     docItem.lowestX = (dataItemIndex == 0) ?  finalDataModel[dataItemIndex].x : docItem.lowestX;
+                    docItem.biggestX = (dataItemIndex == 0) ?  finalDataModel[dataItemIndex].x : docItem.biggestX;
 
                     if(finalDataModel[dataItemIndex].x > docItem.biggestX)
                     {
@@ -336,6 +337,7 @@ Document ReadDocumentDataPart(char *filePath, Document docItem, DocumentDataMode
                     finalDataModel[dataItemIndex].y = isZero ? 0.00 : (float)atof(myChar);
 
                     docItem.lowestY = (dataItemIndex == 0) ? finalDataModel[dataItemIndex].y : docItem.lowestY;
+                    docItem.biggestY = (dataItemIndex == 0) ? finalDataModel[dataItemIndex].y : docItem.biggestY;
 
                     if(finalDataModel[dataItemIndex].y > docItem.biggestY)
                     {
@@ -351,6 +353,7 @@ Document ReadDocumentDataPart(char *filePath, Document docItem, DocumentDataMode
                     finalDataModel[dataItemIndex].z = isZero ? 0.00 : (float)atof(myChar);
 
                     docItem.lowestZ = (dataItemIndex == 0) ? finalDataModel[dataItemIndex].z : docItem.lowestZ;
+                    docItem.biggestZ = (dataItemIndex == 0) ? finalDataModel[dataItemIndex].z : docItem.biggestZ;
 
                     if(finalDataModel[dataItemIndex].z > docItem.biggestZ)
                     {
@@ -359,6 +362,7 @@ Document ReadDocumentDataPart(char *filePath, Document docItem, DocumentDataMode
                     if(finalDataModel[dataItemIndex].z < docItem.lowestZ)
                     {
                         docItem.lowestZ = finalDataModel[dataItemIndex].z;
+
                     }
                 }
 
@@ -563,6 +567,61 @@ void OperationThree()
         fprintf (OutputFile, "\nISLEM 3\n" ,OutputLineNumber);
         OutputLineNumber++;
         printf("\nISLEM 3\n");
+        for(int j = 0; j < FileCount; j++)
+        {
+            if(DocumentsInMemory[j].realPointCount == DocumentsInMemory[j].pointCount)
+            {
+                float difX = DocumentsInMemory[j].biggestX - DocumentsInMemory[j].lowestX;
+                float difY = DocumentsInMemory[j].biggestY - DocumentsInMemory[j].lowestY;
+                float difZ = DocumentsInMemory[j].biggestZ - DocumentsInMemory[j].lowestZ;
+
+                float biggestDiff = difZ;
+                if(difX > difY && difX > difZ){biggestDiff = difX;}
+                else if(difY > difX && difY > difZ){biggestDiff = difY;}
+
+                printf("(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, DocumentsInMemory[j].lowestX, DocumentsInMemory[j].lowestY, DocumentsInMemory[j].lowestZ);
+                printf("(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, DocumentsInMemory[j].lowestX, DocumentsInMemory[j].lowestY, (DocumentsInMemory[j].lowestZ + biggestDiff));
+                printf("(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, DocumentsInMemory[j].lowestX, (DocumentsInMemory[j].lowestY + biggestDiff), DocumentsInMemory[j].lowestZ);
+                printf("(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, DocumentsInMemory[j].lowestX, (DocumentsInMemory[j].lowestY + biggestDiff), (DocumentsInMemory[j].lowestZ + biggestDiff));
+                printf("(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), DocumentsInMemory[j].lowestY, DocumentsInMemory[j].lowestZ);
+                printf("(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), DocumentsInMemory[j].lowestY, (DocumentsInMemory[j].lowestZ + biggestDiff));
+                printf("(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), (DocumentsInMemory[j].lowestY + biggestDiff), DocumentsInMemory[j].lowestZ);
+                printf("(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), (DocumentsInMemory[j].lowestY + biggestDiff), (DocumentsInMemory[j].lowestZ + biggestDiff));
+
+                char buf[256];
+                sprintf(buf,"(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, DocumentsInMemory[j].lowestX, DocumentsInMemory[j].lowestY, DocumentsInMemory[j].lowestZ);
+                fprintf (OutputFile, buf ,OutputLineNumber);
+                OutputLineNumber++;
+
+                sprintf(buf,"(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, DocumentsInMemory[j].lowestX, DocumentsInMemory[j].lowestY, (DocumentsInMemory[j].lowestZ + biggestDiff));
+                fprintf (OutputFile, buf ,OutputLineNumber);
+                OutputLineNumber++;
+
+                sprintf(buf,"(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, DocumentsInMemory[j].lowestX, (DocumentsInMemory[j].lowestY + biggestDiff), DocumentsInMemory[j].lowestZ);
+                fprintf (OutputFile, buf ,OutputLineNumber);
+                OutputLineNumber++;
+
+                sprintf(buf,"(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, DocumentsInMemory[j].lowestX, (DocumentsInMemory[j].lowestY + biggestDiff), (DocumentsInMemory[j].lowestZ + biggestDiff));
+                fprintf (OutputFile, buf ,OutputLineNumber);
+                OutputLineNumber++;
+
+                sprintf(buf,"(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), DocumentsInMemory[j].lowestY, DocumentsInMemory[j].lowestZ);
+                fprintf (OutputFile, buf ,OutputLineNumber);
+                OutputLineNumber++;
+
+                sprintf(buf,"(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), DocumentsInMemory[j].lowestY, (DocumentsInMemory[j].lowestZ + biggestDiff));
+                fprintf (OutputFile, buf ,OutputLineNumber);
+                OutputLineNumber++;
+
+                sprintf(buf,"(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), (DocumentsInMemory[j].lowestY + biggestDiff), DocumentsInMemory[j].lowestZ);
+                fprintf (OutputFile, buf ,OutputLineNumber);
+                OutputLineNumber++;
+
+                sprintf(buf,"(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), (DocumentsInMemory[j].lowestY + biggestDiff), (DocumentsInMemory[j].lowestZ + biggestDiff));
+                fprintf (OutputFile, buf ,OutputLineNumber);
+                OutputLineNumber++;
+            }
+        }
     }
     else
     {
