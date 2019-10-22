@@ -37,8 +37,8 @@ void StartReading()
     char applicationPath[256];
     if (getcwd(applicationPath, sizeof(applicationPath)) != NULL)
     {
-       // = malloc(sizeof(applicationPath));
-       //DirectoryPath = applicationPath;
+       DirectoryPath = malloc(sizeof(applicationPath));
+       DirectoryPath = applicationPath;
        CreateOutputFile();
        printf("Uygulama Dizini : %s\n", DirectoryPath);
        int appDirectoryFileCount = GetFileCount(DirectoryPath, FileExtention);
