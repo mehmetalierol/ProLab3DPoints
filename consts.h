@@ -3,7 +3,7 @@
 
 //Proje içerisinde kullanýlacak sabit deðerler
 const char *FileExtention = ".nkt";
-const char *DirectoryPath = "C://DataFiles";
+const char *DirectoryPath = "";
 const char *CheckAscii = "ascii";
 const char *OutputFileName = "output.nkt";
 
