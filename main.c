@@ -24,6 +24,7 @@ int FileCount = 0;
 int OutputLineNumber = 0;
 FILE *OutputFile;
 char *OutputFullPath;
+int lastOp = 0;
 
 int main()
 {
@@ -239,14 +240,29 @@ Document ReadDocument(char *filePath, char *fileName)
        count++;
    }
 
-   documentItem.realPointCount = GetDatacount(filePath);
+   if(documentItem.isAscii)
+   {
+        documentItem.realPointCount = GetDatacount(filePath);
+   }
+   else
+   {
+       documentItem.realPointCount = GetBinaryDataCount(filePath, documentItem);
+   }
+
    if(documentItem.realPointCount == documentItem.pointCount)
    {
        //Döküman içindekiler dataları tutacak array oluşturuluyor. Size kısmı ise nokta sayısı olarak belirleniyor.
        DocumentDataModel myModel[documentItem.pointCount];
 
-       //Döküman içinde nokta datasının okunması için ilgili metot çağırılarak geriye dönen değer document nesnesinin dataitem propertisine atanıyor.
-       documentItem = ReadDocumentDataPart(filePath, documentItem, myModel, fileName);
+       if(documentItem.isAscii)
+       {
+            //Döküman içinde nokta datasının okunması için ilgili metot çağırılarak geriye dönen değer document nesnesinin dataitem propertisine atanıyor.
+            documentItem = ReadDocumentDataPart(filePath, documentItem, myModel, fileName);
+       }
+       else
+       {
+           documentItem = ReadBinaryDocumentDataPart(filePath, documentItem, myModel, fileName);
+       }
    }
    else
    {
@@ -256,6 +272,158 @@ Document ReadDocument(char *filePath, char *fileName)
 
    //içeriği doldurulmuş document döndürülüyor.
    return documentItem;
+}
+
+Document ReadBinaryDocumentDataPart(char *filePath, Document docItem, DocumentDataModel finalDataModel[], char *fileName)
+{
+
+   //okuma işlemleri için FILE nesnesi
+   FILE *fp;
+
+   //Okuma modunda ilgili dizindeki dosya açılıyor
+   fp  = fopen (filePath, "r");
+
+   //Dosya açılamadı ise ekrana hata mesajı yazılıyor.
+   if (fp == NULL)
+   {
+      perror(FileOpenError);
+      exit(EXIT_FAILURE);
+   }
+
+   //Döküman içindeki nokta datalarının sayısını hesaplamak için kullanılan index
+   int count = 0;
+
+   //satır satır  dosya okumak için kullanılan değişken (Satır boyutu 256 karakteri geçmeyeceği düşünülmüştür.)
+   char chunk[256];
+
+   //x y z r g b kısmını boşluk ile split ediyoruz bu index bize hangi alanda olduğumuzu bildirecek.
+   int tempIndex = 0;
+
+   //Döküman modeli içindeki dataItem arrayine eklenecek dataların indexleri
+   int dataItemIndex = 0;
+
+   float tempValue = 0.00;
+   int lineIndex = 0;
+   while(fread(&tempValue, sizeof(float), 1, fp) != NULL)
+    {
+       if(tempIndex > 17)
+       {
+           if(lineIndex == 0) //X
+           {
+               finalDataModel[dataItemIndex].x = tempValue;
+               //lowest hesaplanırken eğer ilk satır ise atama yapılıyor değilse değer korunuyor.
+               docItem.lowestX = (dataItemIndex == 0) ?  tempValue : docItem.lowestX;
+               docItem.biggestX = (dataItemIndex == 0) ?  tempValue : docItem.biggestX;
+
+               if(tempValue > docItem.biggestX)
+               {
+                    docItem.biggestX = tempValue;
+               }
+               if(tempValue < docItem.lowestX)
+               {
+                    docItem.lowestX = tempValue;
+               }
+
+               lineIndex++;
+           }
+           else if(lineIndex == 1) //Y
+           {
+                finalDataModel[dataItemIndex].y = tempValue;
+
+                docItem.lowestY = (dataItemIndex == 0) ? tempValue : docItem.lowestY;
+                docItem.biggestY = (dataItemIndex == 0) ? tempValue : docItem.biggestY;
+
+                if(tempValue > docItem.biggestY)
+                {
+                    docItem.biggestY = tempValue;
+                }
+                if(tempValue < docItem.lowestY)
+                {
+                    docItem.lowestY = tempValue;
+                }
+
+               lineIndex++;
+           }
+           else if(lineIndex == 2) //Z
+           {
+               finalDataModel[dataItemIndex].z = tempValue;
+
+               docItem.lowestZ = (dataItemIndex == 0) ? tempValue : docItem.lowestZ;
+               docItem.biggestZ = (dataItemIndex == 0) ? tempValue : docItem.biggestZ;
+
+               if(tempValue > docItem.biggestZ)
+               {
+                    docItem.biggestZ = tempValue;
+               }
+               if(tempValue < docItem.lowestZ)
+               {
+                    docItem.lowestZ = tempValue;
+               }
+
+               if(docItem.isWithRGB)
+               {
+                   lineIndex++;
+               }
+               else
+               {
+                   finalDataModel[dataItemIndex].r = 0;
+                   finalDataModel[dataItemIndex].g = 0;
+                   finalDataModel[dataItemIndex].b = 0;
+                   lineIndex = 0;
+                   dataItemIndex++;
+               }
+           }
+
+           //eğer dökümanda RGB datası var ise aşağıdaki atamalar da aynı şekilde yapılıyor
+           if(docItem.isWithRGB)
+           {
+                if(lineIndex == 3) // R ise
+                {
+                        finalDataModel[dataItemIndex].r = (int)tempValue;
+                        lineIndex++;
+                }
+                else if(lineIndex == 4) // G ise
+                {
+                    finalDataModel[dataItemIndex].g = (int)tempValue;
+                    lineIndex++;
+                }
+                else if(lineIndex == 5) //B ise
+                {
+                    finalDataModel[dataItemIndex].b = (int)tempValue;
+                    lineIndex=0;
+                    dataItemIndex++;
+                }
+           }
+       }
+       tempIndex++;
+    }
+
+    //dosya okuma işlemi bittiğinde kapatılıyor.
+   fclose(fp);
+
+   //döküman modeli içindeki item datalara aktarmak yapmak üzere veriler kopyalanıyor (memory de ayrı alanlar açılması için her seferinde malloc ile yer ayrılıyor.)
+   DocumentDataModel *finalDataPointer = malloc(finalDataModel);
+
+   for(int i = 0; i < docItem.pointCount; i++)
+   {
+        finalDataPointer[i].x = finalDataModel[i].x;
+        finalDataPointer[i].y = finalDataModel[i].y;
+        finalDataPointer[i].z = finalDataModel[i].z;
+        //eğer dosya rgb kısmını içermiyorsa o alanlara atama yapılmıyor.
+        if(docItem.isWithRGB)
+        {
+            finalDataPointer[i].r = finalDataModel[i].r;
+            finalDataPointer[i].g = finalDataModel[i].g;
+            finalDataPointer[i].b = finalDataModel[i].b;
+        }
+        finalDataPointer[i].lineNumber = i+1;
+   }
+
+   //döküman modelinin içindeki dataitem'a array ataması yapılıyor.
+   docItem.itemData = finalDataPointer;
+
+   //içi dolu şekilde döküman modeli geri döndürülüyor.
+   return docItem;
 }
 
 //İstenen dökümanın nokta verilerini okuyarak verilen Document nesnesi içine atar
@@ -463,20 +631,6 @@ void CreateUserInterface()
             printf("Gecerli bir operasyon girilmedi!");
             break;
     }
-
-    char answer = "";
-    printf("\nYeniden islem girmek ister misiniz? Y/N : ");
-    scanf("%c", &answer);
-    getchar();
-
-    if(tolower(answer) == 'y')
-    {
-        CreateUserInterface();
-    }
-    else
-    {
-        fclose(OutputFile);
-    }
 }
 
 int GetOperationCodeFromUser()
@@ -501,236 +655,283 @@ int GetOperationCodeFromUser()
 
 void OperationOne()
 {
-    fprintf (OutputFile, "\nISLEM 1\n",OutputLineNumber);
-    printf("\nISLEM 1\n");
-    ErrorLinkList *current_node = HeadError;
-    if(HeadError != NULL)
+    if(lastOp == 0)
     {
-        OutputLineNumber++;
-        while (current_node != NULL)
+        lastOp = 1;
+        fprintf (OutputFile, "\nISLEM 1\n",OutputLineNumber);
+        printf("\nISLEM 1\n");
+        ErrorLinkList *current_node = HeadError;
+        if(HeadError != NULL)
         {
-            ErrorMessage messageToPrint = current_node->data;
-            if(messageToPrint.errorCode == NoRgb)
+            OutputLineNumber++;
+            while (current_node != NULL)
             {
-                char *finalString = ConcateString("(", messageToPrint.errorFileName, ") ", messageToPrint.errorLineNumber);
-                finalString = ConcateString(finalString, ". ", LineNoRgbError, " ");
-                fprintf (OutputFile, finalString ,OutputLineNumber);
+                ErrorMessage messageToPrint = current_node->data;
+                if(messageToPrint.errorCode == NoRgb)
+                {
+                    char *finalString = ConcateString("(", messageToPrint.errorFileName, ") ", messageToPrint.errorLineNumber);
+                    finalString = ConcateString(finalString, ". ", LineNoRgbError, " ");
+                    fprintf (OutputFile, finalString ,OutputLineNumber);
 
-                printf("(%s) - %d. %s\n", messageToPrint.errorFileName, messageToPrint.errorLineNumber, LineNoRgbError);
-                OutputLineNumber++;
-            }
-            else if(messageToPrint.errorCode == WithRgb)
-            {
-                char *finalString = ConcateString("(", messageToPrint.errorFileName, ") ", messageToPrint.errorLineNumber);
-                finalString = ConcateString(finalString, ". ", LineRgbError, " ");
-                fprintf (OutputFile, finalString ,OutputLineNumber);
+                    printf("(%s) - %d. %s\n", messageToPrint.errorFileName, messageToPrint.errorLineNumber, LineNoRgbError);
+                    OutputLineNumber++;
+                }
+                else if(messageToPrint.errorCode == WithRgb)
+                {
+                    char *finalString = ConcateString("(", messageToPrint.errorFileName, ") ", messageToPrint.errorLineNumber);
+                    finalString = ConcateString(finalString, ". ", LineRgbError, " ");
+                    fprintf (OutputFile, finalString ,OutputLineNumber);
 
-                printf("(%s) - %d. %s\n", messageToPrint.errorFileName, messageToPrint.errorLineNumber, LineRgbError);
-                OutputLineNumber++;
-            }
-            else
-            {
-                char *finalString = ConcateString(messageToPrint.errorFileName, " ", messageToPrint.errorMessageTest, " ");
-                fprintf (OutputFile, finalString ,OutputLineNumber);
+                    printf("(%s) - %d. %s\n", messageToPrint.errorFileName, messageToPrint.errorLineNumber, LineRgbError);
+                    OutputLineNumber++;
+                }
+                else
+                {
+                    char *finalString = ConcateString(messageToPrint.errorFileName, " ", messageToPrint.errorMessageTest, " ");
+                    fprintf (OutputFile, finalString ,OutputLineNumber);
 
-                printf("%s %s", messageToPrint.errorFileName, messageToPrint.errorMessageTest);
-                OutputLineNumber++;
+                    printf("%s %s", messageToPrint.errorFileName, messageToPrint.errorMessageTest);
+                    OutputLineNumber++;
+                }
+                current_node = current_node->next;
             }
-            current_node = current_node->next;
         }
+        else
+        {
+            fprintf (OutputFile, "Tum dosyalar uyumludur.",OutputLineNumber);
+            printf("Tum dosyalar uyumludur.");
+            OutputLineNumber++;
+        }
+        SaveOutput();
     }
     else
     {
-        fprintf (OutputFile, "Tüm dosyalar uyumludur.",OutputLineNumber);
-        printf("Tüm dosyalar uyumludur.");
-        OutputLineNumber++;
+        printf("\nLutfen siradaki islemi giriniz (Siradaki islem : %d)\n", lastOp + 1);
     }
-    SaveOutput();
+    CreateUserInterface();
 }
 
 void OperationTwo()
 {
-    if(sizeof(DocumentsInMemory) > 0)
+    if(lastOp == 1)
     {
-        CalcDistance(2);
-    }
-    else
-    {
-        printf("Okunmus dosya bulunmuyor.");
-    }
-}
-
-void OperationThree()
-{
-    if(sizeof(DocumentsInMemory) > 0)
-    {
-        fprintf (OutputFile, "\nISLEM 3\n" ,OutputLineNumber);
-        OutputLineNumber++;
-        printf("\nISLEM 3\n");
-        for(int j = 0; j < FileCount; j++)
+        lastOp = 2;
+        if(sizeof(DocumentsInMemory) > 0)
         {
-            if(DocumentsInMemory[j].realPointCount == DocumentsInMemory[j].pointCount)
-            {
-                float difX = DocumentsInMemory[j].biggestX - DocumentsInMemory[j].lowestX;
-                float difY = DocumentsInMemory[j].biggestY - DocumentsInMemory[j].lowestY;
-                float difZ = DocumentsInMemory[j].biggestZ - DocumentsInMemory[j].lowestZ;
-
-                float biggestDiff = difZ;
-                if(difX > difY && difX > difZ){biggestDiff = difX;}
-                else if(difY > difX && difY > difZ){biggestDiff = difY;}
-
-                printf("(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, DocumentsInMemory[j].lowestX, DocumentsInMemory[j].lowestY, DocumentsInMemory[j].lowestZ);
-                printf("(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, DocumentsInMemory[j].lowestX, DocumentsInMemory[j].lowestY, (DocumentsInMemory[j].lowestZ + biggestDiff));
-                printf("(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, DocumentsInMemory[j].lowestX, (DocumentsInMemory[j].lowestY + biggestDiff), DocumentsInMemory[j].lowestZ);
-                printf("(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, DocumentsInMemory[j].lowestX, (DocumentsInMemory[j].lowestY + biggestDiff), (DocumentsInMemory[j].lowestZ + biggestDiff));
-                printf("(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), DocumentsInMemory[j].lowestY, DocumentsInMemory[j].lowestZ);
-                printf("(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), DocumentsInMemory[j].lowestY, (DocumentsInMemory[j].lowestZ + biggestDiff));
-                printf("(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), (DocumentsInMemory[j].lowestY + biggestDiff), DocumentsInMemory[j].lowestZ);
-                printf("(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), (DocumentsInMemory[j].lowestY + biggestDiff), (DocumentsInMemory[j].lowestZ + biggestDiff));
-
-                char buf[256];
-                sprintf(buf,"(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, DocumentsInMemory[j].lowestX, DocumentsInMemory[j].lowestY, DocumentsInMemory[j].lowestZ);
-                fprintf (OutputFile, buf ,OutputLineNumber);
-                OutputLineNumber++;
-
-                sprintf(buf,"(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, DocumentsInMemory[j].lowestX, DocumentsInMemory[j].lowestY, (DocumentsInMemory[j].lowestZ + biggestDiff));
-                fprintf (OutputFile, buf ,OutputLineNumber);
-                OutputLineNumber++;
-
-                sprintf(buf,"(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, DocumentsInMemory[j].lowestX, (DocumentsInMemory[j].lowestY + biggestDiff), DocumentsInMemory[j].lowestZ);
-                fprintf (OutputFile, buf ,OutputLineNumber);
-                OutputLineNumber++;
-
-                sprintf(buf,"(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, DocumentsInMemory[j].lowestX, (DocumentsInMemory[j].lowestY + biggestDiff), (DocumentsInMemory[j].lowestZ + biggestDiff));
-                fprintf (OutputFile, buf ,OutputLineNumber);
-                OutputLineNumber++;
-
-                sprintf(buf,"(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), DocumentsInMemory[j].lowestY, DocumentsInMemory[j].lowestZ);
-                fprintf (OutputFile, buf ,OutputLineNumber);
-                OutputLineNumber++;
-
-                sprintf(buf,"(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), DocumentsInMemory[j].lowestY, (DocumentsInMemory[j].lowestZ + biggestDiff));
-                fprintf (OutputFile, buf ,OutputLineNumber);
-                OutputLineNumber++;
-
-                sprintf(buf,"(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), (DocumentsInMemory[j].lowestY + biggestDiff), DocumentsInMemory[j].lowestZ);
-                fprintf (OutputFile, buf ,OutputLineNumber);
-                OutputLineNumber++;
-
-                sprintf(buf,"(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), (DocumentsInMemory[j].lowestY + biggestDiff), (DocumentsInMemory[j].lowestZ + biggestDiff));
-                fprintf (OutputFile, buf ,OutputLineNumber);
-                OutputLineNumber++;
-            }
+            CalcDistance(2);
+        }
+        else
+        {
+            printf("Okunmus dosya bulunmuyor.");
         }
     }
     else
     {
-        printf("Okunmus dosya bulunmuyor.");
+        printf("\nLutfen siradaki islemi giriniz (Siradaki islem : %d)\n", lastOp + 1);
     }
+    CreateUserInterface();
+}
+
+void OperationThree()
+{
+    if(lastOp == 2)
+    {
+        lastOp = 3;
+        if(sizeof(DocumentsInMemory) > 0)
+        {
+            fprintf (OutputFile, "\nISLEM 3\n" ,OutputLineNumber);
+            OutputLineNumber++;
+            printf("\nISLEM 3\n");
+            for(int j = 0; j < FileCount; j++)
+            {
+                if(DocumentsInMemory[j].realPointCount == DocumentsInMemory[j].pointCount)
+                {
+                    float difX = DocumentsInMemory[j].biggestX - DocumentsInMemory[j].lowestX;
+                    float difY = DocumentsInMemory[j].biggestY - DocumentsInMemory[j].lowestY;
+                    float difZ = DocumentsInMemory[j].biggestZ - DocumentsInMemory[j].lowestZ;
+
+                    float biggestDiff = difZ;
+                    if(difX > difY && difX > difZ){biggestDiff = difX;}
+                    else if(difY > difX && difY > difZ){biggestDiff = difY;}
+
+                    printf("(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, DocumentsInMemory[j].lowestX, DocumentsInMemory[j].lowestY, DocumentsInMemory[j].lowestZ);
+                    printf("(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, DocumentsInMemory[j].lowestX, DocumentsInMemory[j].lowestY, (DocumentsInMemory[j].lowestZ + biggestDiff));
+                    printf("(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, DocumentsInMemory[j].lowestX, (DocumentsInMemory[j].lowestY + biggestDiff), DocumentsInMemory[j].lowestZ);
+                    printf("(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, DocumentsInMemory[j].lowestX, (DocumentsInMemory[j].lowestY + biggestDiff), (DocumentsInMemory[j].lowestZ + biggestDiff));
+                    printf("(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), DocumentsInMemory[j].lowestY, DocumentsInMemory[j].lowestZ);
+                    printf("(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), DocumentsInMemory[j].lowestY, (DocumentsInMemory[j].lowestZ + biggestDiff));
+                    printf("(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), (DocumentsInMemory[j].lowestY + biggestDiff), DocumentsInMemory[j].lowestZ);
+                    printf("(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), (DocumentsInMemory[j].lowestY + biggestDiff), (DocumentsInMemory[j].lowestZ + biggestDiff));
+
+                    char buf[256];
+                    sprintf(buf,"(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, DocumentsInMemory[j].lowestX, DocumentsInMemory[j].lowestY, DocumentsInMemory[j].lowestZ);
+                    fprintf (OutputFile, buf ,OutputLineNumber);
+                    OutputLineNumber++;
+
+                    sprintf(buf,"(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, DocumentsInMemory[j].lowestX, DocumentsInMemory[j].lowestY, (DocumentsInMemory[j].lowestZ + biggestDiff));
+                    fprintf (OutputFile, buf ,OutputLineNumber);
+                    OutputLineNumber++;
+
+                    sprintf(buf,"(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, DocumentsInMemory[j].lowestX, (DocumentsInMemory[j].lowestY + biggestDiff), DocumentsInMemory[j].lowestZ);
+                    fprintf (OutputFile, buf ,OutputLineNumber);
+                    OutputLineNumber++;
+
+                    sprintf(buf,"(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, DocumentsInMemory[j].lowestX, (DocumentsInMemory[j].lowestY + biggestDiff), (DocumentsInMemory[j].lowestZ + biggestDiff));
+                    fprintf (OutputFile, buf ,OutputLineNumber);
+                    OutputLineNumber++;
+
+                    sprintf(buf,"(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), DocumentsInMemory[j].lowestY, DocumentsInMemory[j].lowestZ);
+                    fprintf (OutputFile, buf ,OutputLineNumber);
+                    OutputLineNumber++;
+
+                    sprintf(buf,"(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), DocumentsInMemory[j].lowestY, (DocumentsInMemory[j].lowestZ + biggestDiff));
+                    fprintf (OutputFile, buf ,OutputLineNumber);
+                    OutputLineNumber++;
+
+                    sprintf(buf,"(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), (DocumentsInMemory[j].lowestY + biggestDiff), DocumentsInMemory[j].lowestZ);
+                    fprintf (OutputFile, buf ,OutputLineNumber);
+                    OutputLineNumber++;
+
+                    sprintf(buf,"(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), (DocumentsInMemory[j].lowestY + biggestDiff), (DocumentsInMemory[j].lowestZ + biggestDiff));
+                    fprintf (OutputFile, buf ,OutputLineNumber);
+                    OutputLineNumber++;
+                }
+            }
+        }
+        else
+        {
+            printf("Okunmus dosya bulunmuyor.");
+        }
+    }
+    else
+    {
+        printf("\nLutfen siradaki islemi giriniz (Siradaki islem : %d)\n", lastOp + 1);
+    }
+    CreateUserInterface();
 }
 
 void OperationFour()
 {
-    if(sizeof(DocumentsInMemory) > 0)
+    if(lastOp == 3)
     {
-        float sphereX, sphereY, sphereZ, sphereR;
-        fprintf (OutputFile, "\nISLEM 4\n" ,OutputLineNumber);
-        OutputLineNumber++;
-        printf("\nISLEM 4\n");
-        printf("Lutfen kurenin x degerini giriniz : ");
-        scanf("%f", &sphereX);
-        printf("Lutfen kurenin y degerini giriniz : ");
-        scanf("%f", &sphereY);
-        printf("Lutfen kurenin z degerini giriniz : ");
-        scanf("%f", &sphereZ);
-        printf("Lutfen kurenin yaricapini giriniz : ");
-        scanf("%f", &sphereR);
-        while(getchar() != '\n');
-
-        //TO DO. gerekli matematiksel işlemler çalıştırılacak ve dosya içindeki veriler outputa yazılacak
-
-        char buf[256];
-        sprintf(buf,"cx : (%f)\ncy : (%f)\ncz : (%f)\ncr : (%f)\n",
-                 sphereX, sphereY, sphereZ, sphereR);
-        fprintf (OutputFile, buf ,OutputLineNumber);
-        OutputLineNumber++;
-        printf("Girdiginiz X : %f - Y : %f - Z : %f - R : %f", sphereX, sphereY, sphereZ, sphereR);
-
-        printf("test1 %d\n", FileCount);
-        for(int j = 0; j < FileCount; j++)
+        lastOp = 4;
+        if(sizeof(DocumentsInMemory) > 0)
         {
-            if(DocumentsInMemory[j].realPointCount == DocumentsInMemory[j].pointCount)
+            float sphereX, sphereY, sphereZ, sphereR;
+            fprintf (OutputFile, "\nISLEM 4\n" ,OutputLineNumber);
+            OutputLineNumber++;
+            printf("\nISLEM 4\n");
+            printf("Lutfen kurenin x degerini giriniz : ");
+            scanf("%f", &sphereX);
+            printf("Lutfen kurenin y degerini giriniz : ");
+            scanf("%f", &sphereY);
+            printf("Lutfen kurenin z degerini giriniz : ");
+            scanf("%f", &sphereZ);
+            printf("Lutfen kurenin yaricapini giriniz : ");
+            scanf("%f", &sphereR);
+            while(getchar() != '\n');
+
+            //TO DO. gerekli matematiksel işlemler çalıştırılacak ve dosya içindeki veriler outputa yazılacak
+
+            char buf[256];
+            sprintf(buf,"cx : (%f)\ncy : (%f)\ncz : (%f)\ncr : (%f)\n",
+                     sphereX, sphereY, sphereZ, sphereR);
+            fprintf (OutputFile, buf ,OutputLineNumber);
+            OutputLineNumber++;
+            printf("Girdiginiz X : %f - Y : %f - Z : %f - R : %f", sphereX, sphereY, sphereZ, sphereR);
+
+
+            for(int j = 0; j < FileCount; j++)
             {
-                char fields[12] = "x y z";
-                if(DocumentsInMemory[j].isWithRGB){strcpy(fields,"x y z r g b");}
-                char dataType[7] = "ascii";
-                if(!DocumentsInMemory[j].isAscii){strcpy(dataType, "binary");}
-
-                printf("\nDOSYA : %s\nALANLAR : %s\nNOKTALAR : %d\nDATA : %s\n",
-                DocumentsInMemory[j].currentFileName, fields, DocumentsInMemory[j].pointCount, dataType);
-
-                sprintf(buf,"DOSYA : %s\nALANLAR : (%s)\nNOKTALAR : (%d)\nDATA : (%s)\n",
-                DocumentsInMemory[j].currentFileName, fields, DocumentsInMemory[j].pointCount, dataType);
-                fprintf (OutputFile, buf ,OutputLineNumber);
-                OutputLineNumber++;
-
-                for(int i = 0; i < DocumentsInMemory[j].pointCount; i++) //nokta sayısı kadar dön
+                if(DocumentsInMemory[j].realPointCount == DocumentsInMemory[j].pointCount)
                 {
-                    float sonuc= sqrt((pow(sphereX-DocumentsInMemory[j].itemData[i].x,2)) +
-                                      (pow(sphereY-DocumentsInMemory[j].itemData[i].y,2)) +
-                                      (pow(sphereZ-DocumentsInMemory[j].itemData[i].z,2)));
+                    char fields[12] = "x y z";
+                    if(DocumentsInMemory[j].isWithRGB){strcpy(fields,"x y z r g b");}
+                    char dataType[7] = "ascii";
+                    if(!DocumentsInMemory[j].isAscii){strcpy(dataType, "binary");}
 
-                    if(sonuc < sphereR)
+                    printf("\nDOSYA : %s\nALANLAR : %s\nNOKTALAR : %d\nDATA : %s\n",
+                    DocumentsInMemory[j].currentFileName, fields, DocumentsInMemory[j].pointCount, dataType);
+
+                    sprintf(buf,"DOSYA : %s\nALANLAR : (%s)\nNOKTALAR : (%d)\nDATA : (%s)\n",
+                    DocumentsInMemory[j].currentFileName, fields, DocumentsInMemory[j].pointCount, dataType);
+                    fprintf (OutputFile, buf ,OutputLineNumber);
+                    OutputLineNumber++;
+
+                    for(int i = 0; i < DocumentsInMemory[j].pointCount; i++) //nokta sayısı kadar dön
                     {
-                        if(DocumentsInMemory[j].isWithRGB)
-                        {
-                            sprintf(buf,"%d. Satir %f %f %f %d %d %d\n",
-                                   DocumentsInMemory[j].itemData[i].lineNumber, DocumentsInMemory[j].itemData[i].x,
-                                   DocumentsInMemory[j].itemData[i].y, DocumentsInMemory[j].itemData[i].z,
-                                   DocumentsInMemory[j].itemData[i].r, DocumentsInMemory[j].itemData[i].g,
-                                   DocumentsInMemory[j].itemData[i].b);
-                            fprintf (OutputFile, buf ,OutputLineNumber);
-                            OutputLineNumber++;
+                        float sonuc= sqrt((pow(sphereX-DocumentsInMemory[j].itemData[i].x,2)) +
+                                          (pow(sphereY-DocumentsInMemory[j].itemData[i].y,2)) +
+                                          (pow(sphereZ-DocumentsInMemory[j].itemData[i].z,2)));
 
-                            printf("%d. Satir %f %f %f %d %d %d\n",
-                                   DocumentsInMemory[j].itemData[i].lineNumber, DocumentsInMemory[j].itemData[i].x,
-                                   DocumentsInMemory[j].itemData[i].y, DocumentsInMemory[j].itemData[i].z,
-                                   DocumentsInMemory[j].itemData[i].r, DocumentsInMemory[j].itemData[i].g,
-                                   DocumentsInMemory[j].itemData[i].b);
-                        }
-                        else
+                        if(sonuc < sphereR)
                         {
-                            sprintf(buf,"%d. Satir %f %f %f\n",
-                                   DocumentsInMemory[j].itemData[i].lineNumber, DocumentsInMemory[j].itemData[i].x,
-                                   DocumentsInMemory[j].itemData[i].y, DocumentsInMemory[j].itemData[i].z);
-                            fprintf (OutputFile, buf ,OutputLineNumber);
-                            OutputLineNumber++;
+                            if(DocumentsInMemory[j].isWithRGB)
+                            {
+                                sprintf(buf,"%d. Satir %f %f %f %d %d %d\n",
+                                       DocumentsInMemory[j].itemData[i].lineNumber, DocumentsInMemory[j].itemData[i].x,
+                                       DocumentsInMemory[j].itemData[i].y, DocumentsInMemory[j].itemData[i].z,
+                                       DocumentsInMemory[j].itemData[i].r, DocumentsInMemory[j].itemData[i].g,
+                                       DocumentsInMemory[j].itemData[i].b);
+                                fprintf (OutputFile, buf ,OutputLineNumber);
+                                OutputLineNumber++;
 
-                            printf("%d. Satir %f %f %f\n",
-                                   DocumentsInMemory[j].itemData[i].lineNumber, DocumentsInMemory[j].itemData[i].x,
-                                   DocumentsInMemory[j].itemData[i].y, DocumentsInMemory[j].itemData[i].z);
+                                printf("%d. Satir %f %f %f %d %d %d\n",
+                                       DocumentsInMemory[j].itemData[i].lineNumber, DocumentsInMemory[j].itemData[i].x,
+                                       DocumentsInMemory[j].itemData[i].y, DocumentsInMemory[j].itemData[i].z,
+                                       DocumentsInMemory[j].itemData[i].r, DocumentsInMemory[j].itemData[i].g,
+                                       DocumentsInMemory[j].itemData[i].b);
+                            }
+                            else
+                            {
+                                sprintf(buf,"%d. Satir %f %f %f\n",
+                                       DocumentsInMemory[j].itemData[i].lineNumber, DocumentsInMemory[j].itemData[i].x,
+                                       DocumentsInMemory[j].itemData[i].y, DocumentsInMemory[j].itemData[i].z);
+                                fprintf (OutputFile, buf ,OutputLineNumber);
+                                OutputLineNumber++;
+
+                                printf("%d. Satir %f %f %f\n",
+                                       DocumentsInMemory[j].itemData[i].lineNumber, DocumentsInMemory[j].itemData[i].x,
+                                       DocumentsInMemory[j].itemData[i].y, DocumentsInMemory[j].itemData[i].z);
+                            }
                         }
                     }
                 }
             }
         }
+        else
+        {
+            printf("Okunmus dosya bulunmuyor.");
+        }
     }
     else
     {
-        printf("Okunmus dosya bulunmuyor.");
+        printf("\nLutfen siradaki islemi giriniz (Siradaki islem : %d)\n", lastOp + 1);
     }
+    CreateUserInterface();
 }
 
 void OperationFive()
 {
-    if(sizeof(DocumentsInMemory) > 0)
+    if(lastOp == 4)
     {
-        CalcDistance(5);
+        lastOp = 5;
+        if(sizeof(DocumentsInMemory) > 0)
+        {
+            CalcDistance(5);
+        }
+        else
+        {
+            printf("Okunmus dosya bulunmuyor.");
+        }
+        fclose(OutputFile);
+        getchar();
     }
     else
     {
-        printf("Okunmus dosya bulunmuyor.");
+        printf("\nLutfen siradaki islemi giriniz (Siradaki islem : %d)\n", lastOp + 1);
     }
+    if(lastOp != 5){CreateUserInterface();}
 }
 
 void CalcDistance(int operationType)
@@ -749,53 +950,58 @@ void CalcDistance(int operationType)
             {
                 avgIndex = 0;
                 DocumentsInMemory[j].itemsAvg = 0.00;
-                int tempMinCalculation = 0;
-                int tempMaxCalculation = 0;
+                float tempMinCalculation = 0;
+                float tempMaxCalculation = 0;
 
                 for(int i = 0; i < DocumentsInMemory[j].pointCount; i++) //nokta sayısı kadar dön
                 {
                     for(int k = i+1; k < DocumentsInMemory[j].pointCount; k++)// fazladan dönmemek için her seferinde başlangıcı i+1 kadar yap zaten ondan onceki noktayı karşılaştırmıştın
                     {
-                        if(i == 0)
+                        if(i != k)
                         {
-                            float calculationResult = sqrt((pow(DocumentsInMemory[j].itemData[i].x-DocumentsInMemory[j].itemData[k].x,2)) +
-                                                           (pow(DocumentsInMemory[j].itemData[i].y-DocumentsInMemory[j].itemData[k].y,2)) +
-                                                           (pow(DocumentsInMemory[j].itemData[i].z-DocumentsInMemory[j].itemData[k].z,2)));
-
-                            DocumentsInMemory[j].itemsAvg = calculationResult;
-
-                            tempMinCalculation = calculationResult;
-                            tempMaxCalculation = calculationResult;
-
-                            DocumentsInMemory[j].nearestList[0] = DocumentsInMemory[j].itemData[i];
-                            DocumentsInMemory[j].nearestList[1] = DocumentsInMemory[j].itemData[k];
-
-                            DocumentsInMemory[j].farthestList[0] = DocumentsInMemory[j].itemData[k];
-                            DocumentsInMemory[j].farthestList[1] = DocumentsInMemory[j].itemData[i];
-                        }
-                        else
-                        {
-                            float calculationResult = sqrt((pow(DocumentsInMemory[j].itemData[i].x-DocumentsInMemory[j].itemData[k].x,2)) +
-                                                           (pow(DocumentsInMemory[j].itemData[i].y-DocumentsInMemory[j].itemData[k].y,2)) +
-                                                           (pow(DocumentsInMemory[j].itemData[i].z-DocumentsInMemory[j].itemData[k].z,2)));
-
-                            DocumentsInMemory[j].itemsAvg += calculationResult;
-
-                            if(calculationResult < tempMinCalculation) //hesaplama gecici en küçük değerden küçük mü
+                            if(i == 0 && k == 1)
                             {
+                                float calculationResult = sqrt((pow(DocumentsInMemory[j].itemData[i].x-DocumentsInMemory[j].itemData[k].x,2)) +
+                                                               (pow(DocumentsInMemory[j].itemData[i].y-DocumentsInMemory[j].itemData[k].y,2)) +
+                                                               (pow(DocumentsInMemory[j].itemData[i].z-DocumentsInMemory[j].itemData[k].z,2)));
+
+                                DocumentsInMemory[j].itemsAvg = calculationResult;
+
+                                tempMinCalculation = calculationResult;
+                                tempMaxCalculation = calculationResult;
+
                                 DocumentsInMemory[j].nearestList[0] = DocumentsInMemory[j].itemData[i];
                                 DocumentsInMemory[j].nearestList[1] = DocumentsInMemory[j].itemData[k];
-                                tempMinCalculation = calculationResult;
-                            }
-                            if(calculationResult > tempMaxCalculation) //hesaplama gecici en büyük değerden büyük mü
-                            {
+
                                 DocumentsInMemory[j].farthestList[0] = DocumentsInMemory[j].itemData[k];
                                 DocumentsInMemory[j].farthestList[1] = DocumentsInMemory[j].itemData[i];
-                                tempMaxCalculation = tempMaxCalculation;
+
+                                avgIndex++;
+                            }
+                            else
+                            {
+                                float calculationResult = sqrt((pow(DocumentsInMemory[j].itemData[i].x-DocumentsInMemory[j].itemData[k].x,2)) +
+                                                               (pow(DocumentsInMemory[j].itemData[i].y-DocumentsInMemory[j].itemData[k].y,2)) +
+                                                               (pow(DocumentsInMemory[j].itemData[i].z-DocumentsInMemory[j].itemData[k].z,2)));
+
+                                DocumentsInMemory[j].itemsAvg += calculationResult;
+
+                                if(calculationResult < tempMinCalculation) //hesaplama gecici en küçük değerden küçük mü
+                                {
+                                    DocumentsInMemory[j].nearestList[0] = DocumentsInMemory[j].itemData[i];
+                                    DocumentsInMemory[j].nearestList[1] = DocumentsInMemory[j].itemData[k];
+                                    tempMinCalculation = calculationResult;
+                                }
+                                if(calculationResult > tempMaxCalculation) //hesaplama gecici en büyük değerden büyük mü
+                                {
+                                    DocumentsInMemory[j].farthestList[0] = DocumentsInMemory[j].itemData[k];
+                                    DocumentsInMemory[j].farthestList[1] = DocumentsInMemory[j].itemData[i];
+                                    tempMaxCalculation = tempMaxCalculation;
+                                }
+
+                                avgIndex++;
                             }
                         }
-
-                        avgIndex++;
                     }
                 }
 
@@ -845,7 +1051,7 @@ void PrintCalcDistance(Document doc, int operationType)
             doc.nearestList[1].z, doc.nearestList[1].r,
             doc.nearestList[1].g, doc.nearestList[1].b);
 
-        sprintf(buf,"(%s) En Yakin Nokta (%d. Satir):%f %f %f %d %d %d\n",
+        sprintf(buf,"(%s) En Uzak Nokta (%d. Satir):%f %f %f %d %d %d\n",
             doc.currentFileName, doc.farthestList[0].lineNumber,
             doc.farthestList[0].x, doc.farthestList[0].y,
             doc.farthestList[0].z, doc.farthestList[0].r,
@@ -853,13 +1059,13 @@ void PrintCalcDistance(Document doc, int operationType)
         fprintf (OutputFile, buf ,OutputLineNumber);
         OutputLineNumber++;
 
-        printf("(%s) En Yakin Nokta (%d. Satir):%f %f %f %d %d %d\n",
+        printf("(%s) En Uzak Nokta (%d. Satir):%f %f %f %d %d %d\n",
             doc.currentFileName, doc.farthestList[0].lineNumber,
             doc.farthestList[0].x, doc.farthestList[0].y,
             doc.farthestList[0].z, doc.farthestList[0].r,
             doc.farthestList[0].g, doc.farthestList[0].b);
 
-        sprintf(buf,"(%s) En Yakin Nokta (%d. Satir):%f %f %f %d %d %d\n",
+        sprintf(buf,"(%s) En Uzak Nokta (%d. Satir):%f %f %f %d %d %d\n",
             doc.currentFileName, doc.farthestList[1].lineNumber,
             doc.farthestList[1].x, doc.farthestList[1].y,
             doc.farthestList[1].z, doc.farthestList[1].r,
@@ -867,7 +1073,7 @@ void PrintCalcDistance(Document doc, int operationType)
         fprintf (OutputFile, buf ,OutputLineNumber);
         OutputLineNumber++;
 
-        printf("(%s) En Yakin Nokta (%d. Satir):%f %f %f %d %d %d\n\n",
+        printf("(%s) En Uzak Nokta (%d. Satir):%f %f %f %d %d %d\n\n",
             doc.currentFileName,   doc.farthestList[1].lineNumber,
             doc.farthestList[1].x, doc.farthestList[1].y,
             doc.farthestList[1].z, doc.farthestList[1].r,
@@ -923,6 +1129,49 @@ int GetDatacount(char *filePath)
 
    //hesaplanan satir sayisi geri döndürülüyor.
    return dataCount;
+}
+
+int GetBinaryDataCount(char *filePath, Document doc)
+{
+    FILE *file = fopen(filePath, "rb");
+    float i = 0;
+    int lineIndex=0;
+    int tempIndex = 0;
+    int rowCount = 0;
+    while(fread(&i, sizeof(float), 1, file) != NULL)
+    {
+       if(tempIndex > 17)
+       {
+           if(lineIndex<2)
+           {
+               lineIndex++;
+           }
+           else if(lineIndex == 2)
+           {
+               if(doc.isWithRGB)
+               {
+                   lineIndex++;
+               }
+               else
+               {
+                   lineIndex = 0;
+                   rowCount++;
+               }
+           }
+           else if(lineIndex == 5)
+           {
+               lineIndex = 0;
+               rowCount++;
+           }
+           else
+           {
+                lineIndex++;
+           }
+       }
+       tempIndex++;
+    }
+
+    return rowCount;
 }
 
 //Verilen dizindeki istenen uzantılı dosyaların sayısını veren motot
