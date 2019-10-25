@@ -10,63 +10,150 @@
 //tolower vs gibi işlemler
 #include <ctype.h>
 
-//kendi header dosyalarımız
-#include "methods.h" //metot imzaları (interfaceler)
-#include "models.h" //structlar (modeller)
-#include "consts.h" //sabitler
-#include "enums.h" //enumlar
+//Hata mesajlari icin model
+typedef struct {
+    char *errorFileName;
+    int errorLineNumber;
+    char *errorMessageTest;
+    int errorCode;
+} ErrorMessage;
+
+//Hatalar icin link list modeli
+typedef struct ErrorLinkList{
+    ErrorMessage data;
+    struct ErrorLinkList *next;
+} ErrorLinkList;
+
+//Dökümanlarýn içinde bulunan nokta verilerinin saklanacaðý model
+typedef struct {
+   float  x;
+   float  y;
+   float  z;
+   int r;
+   int g;
+   int b;
+   int lineNumber;
+} DocumentDataModel;
+
+//Dökümanlarýn saklanacaðý model
+typedef struct {
+   char* currentFileName;
+   int  version;
+   int  pointCount;
+   int  realPointCount;
+   bool isAscii;
+   bool isWithRGB;
+   bool isCalculated;
+   float biggestX;
+   float biggestY;
+   float biggestZ;
+   float lowestX;
+   float lowestY;
+   float lowestZ;
+   float itemsAvg;
+   DocumentDataModel nearestList[2];
+   DocumentDataModel farthestList[2];
+   DocumentDataModel *itemData;
+} Document;
+
+//Proje içinde kullanýlan metotlar
+void StartReading(); //Okumayı baslatan ve uygulamanın bulunduğu dizini alan metot
+void ReadDocumentsInDirectory(char directoryPath[], char fileExtention[], int appDirectoryFileCount); //dizindeki dosya sayisi genişliğinde struct array olusturan ve dongu baslatan metot
+Document ReadDocument(char *filePath, char *fileName); //bir ustteki metot her dondugunde bu metotu cagırır ve ilgili dosyanın header bilgilerini okuyarak hafızaya atar
+Document ReadDocumentDataPart(char *filePath, Document docItem, DocumentDataModel finalDataModel[], char *fileName); //header bilgileri okunan ascii dosyanın nokta sayıları eslesiyorsa noktaları okunur ve hafızaya atılır
+Document ReadBinaryDocumentDataPart(char *filePath, Document docItem, DocumentDataModel finalDataModel[], char *fileName); //header bilgileri okunan binary dosyanın nokta sayıları eslesiyorsa noktaları okunur ve hafızaya atılır
+void CreateUserInterface(); //kullanıcıdan alınan işlem tipini kontrol ederek ilgili metodu cagırır
+int GetOperationCodeFromUser(); //kullanıcıdan işlem tipi almak icin gerekli mesajlari basar
+void OperationOne(); // 1. ister için gerekli iş kodlarını içerir
+void OperationTwo(); // 2. ister için gerekli iş kodlarını içerir
+void OperationThree(); // 3. ister için  gerekli iş kodlarını içerir
+void OperationFour(); // 4. ister için gerekli iş kodlarını içerir
+void OperationFive(); // 5. ister için gerekli iş kodlarını içerir
+void CalcDistance(int operationType); //2 ve 5 nolu isterler benzer iş kodlarına sahip olduğu için bu kısımda verilen işlem tipi ile gerekli hesaplamalar yapılır
+void PrintCalcDistance(Document doc, int operationType); // 2 ve 5 için gerekli hesaplamalar sonrası ekrana işlem tipine göre sonuc basılır
+int GetDatacount(char *filePath); // ascii dosyalardaki nokta sayısını hesaplar
+int GetBinaryDataCount(char *filePath, Document doc); // binary dosyalardaki nokta sayısını hesaplar
+int GetFileCount(char directoryPath[], char fileExtention[]); // verilen dizindeki nkt uzantılı doyaların sayısını hesaplar
+void PushError(char *fileName, int lineNumber, char *message, int code); //hata listesine yeni bir hata basmak için kullanılır
+char * ConcateString(char *str1, char *str2, char *str3, char *str4); // verilen stringleri birleştirmek için kullanılır
+void CreateOutputFile(); // output.nkt dosyası oluşturur
+void SaveOutput(); //oluşturula output.nkt dosyasını kaydeder.
+
+//Proje içerisinde kullanýlacak sabit deðerler
+const char *FileExtention = ".nkt";
+const char *CheckAscii = "ascii";
+const char *OutputFileName = "output.nkt";
+
+//hata mesajlarý
+const char *FilePointCountWrong = " dosyasindaki nokta sayisi gecerli degildir.\n";
+const char *FileOpenError = "Dosya acilamadi!.";
+const char *DirectoryOpenError = "Dizin acilamadi.";
+const char *ApplicationDirectoryError = "Uygulama dizini alinamadi!";
+const char *NoFileInDirectoryError = "Dizinde hic %s dosyasi bulunamadi!";
+const char *LineNoRgbError = " Nokta verisi r g b bilgileri olmadan verilmistir.";
+const char *LineRgbError = " Nokta verisi r g b bilgileri ile verilmistir. Dosyada r g b alanlari yoktur.";
+
+//Projede kullanilan enumlar
+typedef enum
+{
+    NoRgb,
+    WithRgb,
+    PointCountError
+} ErrorCodes;
 
 //Global Değişkenler
-Document *DocumentsInMemory;
-struct ErrorLinkList *HeadError = NULL;
-int ErrorCount = 0;
-int FileCount = 0;
-int OutputLineNumber = 0;
-FILE *OutputFile;
-char *OutputFullPath;
-int lastOp = 0;
+Document *DocumentsInMemory; //hafızaya alınan dosya ve nokta verilerini tutar
+struct ErrorLinkList *HeadError = NULL; //hataların ekleneceği ana node u tutar
+int ErrorCount = 0; //dongu için hata mesajlarının sayısını tutar
+int FileCount = 0; //dizindeki dosya sayısını tutar
+int OutputLineNumber = 0; //output.nkt kaçıncı satırda olduğu bilgisini tutar
+FILE *OutputFile; //output.nkt dosyasını okumamak için ismi tutar
+char *OutputFullPath; //output.nkt dosyasının hangi dizine yazılacağınız tutar
+int lastOp = 0; //kullanıcının son yaptığı işlem tipini tutar
+char *DirectoryPath = "C:\\DataFiles";  //bulunulan dizini tutar
 
 int main()
 {
-    StartReading();
-    fclose(OutputFile);
+    StartReading(); //okumayı baslatan metot
+    fclose(OutputFile); //output.nkt dosyası kapatılıyor
     return 0;
 }
 
+//mevcut dizini alır output dosyasını oluşturur ve okuma işlemlerini başlatır.
 void StartReading()
 {
-    char applicationPath[256];
+    char applicationPath[256]; //mevcut yolu tutmak için geçiçi değişken
     if (getcwd(applicationPath, sizeof(applicationPath)) != NULL)
     {
-       DirectoryPath = malloc(sizeof(applicationPath));
-       DirectoryPath = applicationPath;
-       CreateOutputFile();
-       printf("Uygulama Dizini : %s\n", DirectoryPath);
-       int appDirectoryFileCount = GetFileCount(DirectoryPath, FileExtention);
-       if(appDirectoryFileCount > 0)
+       //DirectoryPath = malloc(sizeof(applicationPath)); //application path global değişkene atanıyor
+       //DirectoryPath = applicationPath;
+       CreateOutputFile(); //output dosyası oluşturuluyor
+       printf("Uygulama Dizini : %s\n", DirectoryPath); //uygulama dizini ekrana basılıyor
+       int appDirectoryFileCount = GetFileCount(DirectoryPath, FileExtention); //bulunan dizindeki nkt uzantılı dosyaların sayısı alınıyor
+       if(appDirectoryFileCount > 0) // dosya var mı diye kontrol ediliyor
        {
-           printf("Dizinde toplam %d adet %s dosyasi bulundu!\n", appDirectoryFileCount, FileExtention);
+           printf("Dizinde toplam %d adet %s dosyasi bulundu!\n", appDirectoryFileCount, FileExtention); // dosya satısı ekrana basılıyor.
 
-           //Hiyerarşik şekilde çalışması için ilk metod çağırılıyor.
-           ReadDocumentsInDirectory(DirectoryPath, FileExtention);
+           //Dizinde bulunan dosyaların okunup hafızaya alınması için ilgili metot çağırılıyor
+           ReadDocumentsInDirectory(DirectoryPath, FileExtention, appDirectoryFileCount);
        }
        else
        {
-            printf(NoFileInDirectoryError, FileExtention);
+            printf(NoFileInDirectoryError, FileExtention); //dizinde dosya yoksa ekrana uyarı veriliyor
        }
     }
     else
     {
-       perror(ApplicationDirectoryError);
+       perror(ApplicationDirectoryError); //dizin alınamz ise hata veriliyor
        return 1;
     }
 }
 
 //Dizindeki dosya okuma işlemlerini başlatacak olan metot
-void ReadDocumentsInDirectory(char directoryPath[], char fileExtention[])
+void ReadDocumentsInDirectory(char directoryPath[], char fileExtention[], int appDirectoryFileCount)
 {
     //verilen dizindeki istenen uzantıdaki dosya sayısı ile yeni bir struct dizi oluşturur.
-    Document filesArray[GetFileCount(directoryPath, fileExtention)];
+    Document filesArray[appDirectoryFileCount];
 
     //Hangi dosyada olduğumuzu anlamak için index
     int fileIndex = 0;
@@ -81,29 +168,32 @@ void ReadDocumentsInDirectory(char directoryPath[], char fileExtention[])
        //Dosya sayısı kadar döngü
        while ((ent = readdir (dir)) != NULL)
        {
-          //Dosya ismi uzantı kontrolü için yeni bir değişkende saklanıyor.
-          char *fileName = (char *)malloc(strlen(ent->d_name)+1);
-          strcpy(fileName,ent->d_name);
-          char *ext = strrchr(fileName,'.');
+           if(strlen(ent->d_name) > 3)
+           {
+              //Dosya ismi uzantı kontrolü için yeni bir değişkende saklanıyor.
+              char *fileName = (char *)malloc(strlen(ent->d_name)+1);
+              strcpy(fileName,ent->d_name);
+              char *ext = strrchr(fileName,'.');
 
-          if(ext)
-          {
-              //Uzantı kontrol ediliyor
-              if(strcmp(ext, FileExtention) == 0 && strcmp(tolower(fileName), OutputFileName) != 0)
+              if(ext && strlen(ext) > 1)
               {
-                  //dosyanın tam yolu hesaplanıyor
-                  char *fullPath = (char *) malloc(1 + strlen(directoryPath)+ strlen(fileName) );
-                  strcpy(fullPath, directoryPath);
-                  strcat(fullPath, "//");
-                  strcat(fullPath, fileName);
+                  //Uzantı kontrol ediliyor
+                  if(strcmp(ext, FileExtention) == 0 && strcmp(tolower(fileName), OutputFileName) != 0)
+                  {
+                      //dosyanın tam yolu hesaplanıyor
+                      char *fullPath = (char *) malloc(1 + strlen(directoryPath)+ strlen(fileName) );
+                      strcpy(fullPath, directoryPath);
+                      strcat(fullPath, "//");
+                      strcat(fullPath, fileName);
 
-                  //metodun başında oluşturulan arrayin index kontrollü şekilde elemanları atanıyor.
-                  filesArray[fileIndex] = ReadDocument(fullPath, fileName);
+                      //metodun başında oluşturulan arrayin index kontrollü şekilde elemanları atanıyor.
+                      filesArray[fileIndex] = ReadDocument(fullPath, fileName);
 
-                  //her bir döküman da index artırılıyor.
-                  fileIndex++;
+                      //her bir döküman da index artırılıyor.
+                      fileIndex++;
+                  }
               }
-          }
+           }
        }
 
        //Dosya ile iş bittiğinde dosya kapatılıyor.
@@ -154,7 +244,6 @@ Document ReadDocument(char *filePath, char *fileName)
    documentItem.currentFileName = malloc(fileName);
    documentItem.currentFileName = fileName;
    documentItem.isCalculated = false;
-
    //Boşluk ile split edilecek datalarda hangi alanda olduğunu bilmek için kullanılan index
    int tempIndex = 0;
 
@@ -240,33 +329,37 @@ Document ReadDocument(char *filePath, char *fileName)
        count++;
    }
 
+   fclose(fp);
+
+   //dosya data tipine göre ilgili metot çağırılıyor ve nokta sayısı hesaplanarak hafızaya atılıyor
    if(documentItem.isAscii)
    {
-        documentItem.realPointCount = GetDatacount(filePath);
+        documentItem.realPointCount = GetDatacount(filePath); // ascii dosyalar için
    }
    else
    {
-       documentItem.realPointCount = GetBinaryDataCount(filePath, documentItem);
+       documentItem.realPointCount = GetBinaryDataCount(filePath, documentItem); // binary dosyalar için
    }
 
-   if(documentItem.realPointCount == documentItem.pointCount)
+   if(documentItem.realPointCount == documentItem.pointCount) // belirtilen nokta sayısı ile gerçek nokta sayısı kıyaslanıyor doğru ise işlemlere devam ediliyor.
    {
        //Döküman içindekiler dataları tutacak array oluşturuluyor. Size kısmı ise nokta sayısı olarak belirleniyor.
        DocumentDataModel myModel[documentItem.pointCount];
 
-       if(documentItem.isAscii)
+       if(documentItem.isAscii) // data tipine göre okuma metodu çağırılıyor
        {
-            //Döküman içinde nokta datasının okunması için ilgili metot çağırılarak geriye dönen değer document nesnesinin dataitem propertisine atanıyor.
+            //Ascii Döküman içinde nokta datasının okunması için ilgili metot çağırılarak geriye dönen değer document nesnesinin dataitem propertisine atanıyor.
             documentItem = ReadDocumentDataPart(filePath, documentItem, myModel, fileName);
        }
        else
        {
+           //Binary Döküman içinde nokta datasının okunması için ilgili metot çağırılarak geriye dönen değer document nesnesinin dataitem propertisine atanıyor.
            documentItem = ReadBinaryDocumentDataPart(filePath, documentItem, myModel, fileName);
        }
    }
    else
    {
-       PushError(fileName, 0, FilePointCountWrong, PointCountError);
+       PushError(fileName, 0, FilePointCountWrong, PointCountError); //nokta sayıları farklı ise hata link listine hata basılıyor
        ErrorCount++;
    }
 
@@ -274,9 +367,9 @@ Document ReadDocument(char *filePath, char *fileName)
    return documentItem;
 }
 
+//İstenen Binary dökümanın nokta verilerini okuyarak verilen Document nesnesi içine atar
 Document ReadBinaryDocumentDataPart(char *filePath, Document docItem, DocumentDataModel finalDataModel[], char *fileName)
 {
-
    //okuma işlemleri için FILE nesnesi
    FILE *fp;
 
@@ -302,11 +395,12 @@ Document ReadBinaryDocumentDataPart(char *filePath, Document docItem, DocumentDa
    //Döküman modeli içindeki dataItem arrayine eklenecek dataların indexleri
    int dataItemIndex = 0;
 
+   //geçici olarak float verileri tutacak değişken
    float tempValue = 0.00;
-   int lineIndex = 0;
-   while(fread(&tempValue, sizeof(float), 1, fp) != NULL)
+   int lineIndex = 0; //x y z sırasını tutmak için değişken
+   while(fread(&tempValue, sizeof(float), 1, fp) != NULL) //f read ile okuma yapılıyor
     {
-       if(tempIndex > 17)
+       if(tempIndex > 17) // header kısmı atlanıyor
        {
            if(lineIndex == 0) //X
            {
@@ -426,7 +520,7 @@ Document ReadBinaryDocumentDataPart(char *filePath, Document docItem, DocumentDa
    return docItem;
 }
 
-//İstenen dökümanın nokta verilerini okuyarak verilen Document nesnesi içine atar
+//İstenen Ascii dökümanın nokta verilerini okuyarak verilen Document nesnesi içine atar
 Document ReadDocumentDataPart(char *filePath, Document docItem, DocumentDataModel finalDataModel[], char *fileName)
 {
    //okuma işlemleri için FILE nesnesi
@@ -606,6 +700,7 @@ Document ReadDocumentDataPart(char *filePath, Document docItem, DocumentDataMode
    return docItem;
 }
 
+//girilen işlem tipine göre ilgili metotları çağırır
 void CreateUserInterface()
 {
     int operationCode = GetOperationCodeFromUser();
@@ -633,6 +728,7 @@ void CreateUserInterface()
     }
 }
 
+//kullanıcıya işlem listesini gösterir ve bir işlem tipi girmesini ister
 int GetOperationCodeFromUser()
 {
     printf("\nIslem listesi : ");
@@ -642,6 +738,7 @@ int GetOperationCodeFromUser()
     printf(" | ( 4-) Kure");
     printf(" | ( 5-) Nokta Uzakliklari\n");
     int operationCode = 0;
+    // sadece 1,2,3,4,5 rakamlarını kabul etmek için gerekli kontroller yapılıyor
     do
     {
         printf("Lutfen gecerli bir islem tipi giriniz : ");
@@ -653,6 +750,7 @@ int GetOperationCodeFromUser()
     return operationCode;
 }
 
+// hata mesajları link listinde kayıt var ise ekrana basılıyor
 void OperationOne()
 {
     if(lastOp == 0)
@@ -698,8 +796,8 @@ void OperationOne()
         }
         else
         {
-            fprintf (OutputFile, "Tum dosyalar uyumludur.",OutputLineNumber);
-            printf("Tum dosyalar uyumludur.");
+            fprintf (OutputFile, "Tum dosyalar uyumludur.\n",OutputLineNumber);
+            printf("Tum dosyalar uyumludur.\n");
             OutputLineNumber++;
         }
         SaveOutput();
@@ -708,9 +806,10 @@ void OperationOne()
     {
         printf("\nLutfen siradaki islemi giriniz (Siradaki islem : %d)\n", lastOp + 1);
     }
-    CreateUserInterface();
+    CreateUserInterface();  //işlem bitiminde yeniden işlem tipi isteniyor
 }
 
+// dosyalar içindeki en yakın ve en uzak noktalar hesaplanıyor
 void OperationTwo()
 {
     if(lastOp == 1)
@@ -718,7 +817,7 @@ void OperationTwo()
         lastOp = 2;
         if(sizeof(DocumentsInMemory) > 0)
         {
-            CalcDistance(2);
+            CalcDistance(2); // 2 ve 5 aynı mantığa sahip olduğu için işlem kodu ile ayrılarak aynı iş kodu çalıştırılıyor
         }
         else
         {
@@ -729,9 +828,10 @@ void OperationTwo()
     {
         printf("\nLutfen siradaki islemi giriniz (Siradaki islem : %d)\n", lastOp + 1);
     }
-    CreateUserInterface();
+    CreateUserInterface(); //işlem bitiminde yeniden işlem tipi isteniyor
 }
 
+//okuma esnasında hesaplanan en buyuk ve en kucuk koordinat değerleri ile hesaplama yaparak küp koordinatları ekrana basılıyor.
 void OperationThree()
 {
     if(lastOp == 2)
@@ -761,7 +861,7 @@ void OperationThree()
                     printf("(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), DocumentsInMemory[j].lowestY, DocumentsInMemory[j].lowestZ);
                     printf("(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), DocumentsInMemory[j].lowestY, (DocumentsInMemory[j].lowestZ + biggestDiff));
                     printf("(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), (DocumentsInMemory[j].lowestY + biggestDiff), DocumentsInMemory[j].lowestZ);
-                    printf("(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), (DocumentsInMemory[j].lowestY + biggestDiff), (DocumentsInMemory[j].lowestZ + biggestDiff));
+                    printf("(%s) %f %f %f 255 255 255\n\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), (DocumentsInMemory[j].lowestY + biggestDiff), (DocumentsInMemory[j].lowestZ + biggestDiff));
 
                     char buf[256];
                     sprintf(buf,"(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, DocumentsInMemory[j].lowestX, DocumentsInMemory[j].lowestY, DocumentsInMemory[j].lowestZ);
@@ -792,7 +892,7 @@ void OperationThree()
                     fprintf (OutputFile, buf ,OutputLineNumber);
                     OutputLineNumber++;
 
-                    sprintf(buf,"(%s) %f %f %f 255 255 255\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), (DocumentsInMemory[j].lowestY + biggestDiff), (DocumentsInMemory[j].lowestZ + biggestDiff));
+                    sprintf(buf,"(%s) %f %f %f 255 255 255\n\n", DocumentsInMemory[j].currentFileName, (DocumentsInMemory[j].lowestX + biggestDiff), (DocumentsInMemory[j].lowestY + biggestDiff), (DocumentsInMemory[j].lowestZ + biggestDiff));
                     fprintf (OutputFile, buf ,OutputLineNumber);
                     OutputLineNumber++;
                 }
@@ -807,9 +907,10 @@ void OperationThree()
     {
         printf("\nLutfen siradaki islemi giriniz (Siradaki islem : %d)\n", lastOp + 1);
     }
-    CreateUserInterface();
+    CreateUserInterface();  //işlem bitiminde yeniden işlem tipi isteniyor
 }
 
+//kullanıcıdan küre koordinatları ve yarı çapı isteniyor. noktalar arası uzaklık formulu ile her bir nokta kontrol ediliyor ve fark yarı çaptan küçük ise ekrana basılıyor.
 void OperationFour()
 {
     if(lastOp == 3)
@@ -831,8 +932,6 @@ void OperationFour()
             scanf("%f", &sphereR);
             while(getchar() != '\n');
 
-            //TO DO. gerekli matematiksel işlemler çalıştırılacak ve dosya içindeki veriler outputa yazılacak
-
             char buf[256];
             sprintf(buf,"cx : (%f)\ncy : (%f)\ncz : (%f)\ncr : (%f)\n",
                      sphereX, sphereY, sphereZ, sphereR);
@@ -853,7 +952,7 @@ void OperationFour()
                     printf("\nDOSYA : %s\nALANLAR : %s\nNOKTALAR : %d\nDATA : %s\n",
                     DocumentsInMemory[j].currentFileName, fields, DocumentsInMemory[j].pointCount, dataType);
 
-                    sprintf(buf,"DOSYA : %s\nALANLAR : (%s)\nNOKTALAR : (%d)\nDATA : (%s)\n",
+                    sprintf(buf,"DOSYA : %s\nALANLAR : %s\nNOKTALAR : %d\nDATA : %s\n",
                     DocumentsInMemory[j].currentFileName, fields, DocumentsInMemory[j].pointCount, dataType);
                     fprintf (OutputFile, buf ,OutputLineNumber);
                     OutputLineNumber++;
@@ -908,9 +1007,10 @@ void OperationFour()
     {
         printf("\nLutfen siradaki islemi giriniz (Siradaki islem : %d)\n", lastOp + 1);
     }
-    CreateUserInterface();
+    CreateUserInterface();  //işlem bitiminde yeniden işlem tipi isteniyor
 }
 
+//dosya içindeki noktaların birbirlerine olan uzaklıklarının ortalaması hesaplanıyor
 void OperationFive()
 {
     if(lastOp == 4)
@@ -918,7 +1018,7 @@ void OperationFive()
         lastOp = 5;
         if(sizeof(DocumentsInMemory) > 0)
         {
-            CalcDistance(5);
+            CalcDistance(5); // 2 ve 5 aynı mantığa sahip olduğu için işlem kodu ile ayrılarak aynı iş kodu çalıştırılıyor
         }
         else
         {
@@ -931,9 +1031,10 @@ void OperationFive()
     {
         printf("\nLutfen siradaki islemi giriniz (Siradaki islem : %d)\n", lastOp + 1);
     }
-    if(lastOp != 5){CreateUserInterface();}
+    if(lastOp != 5){CreateUserInterface();} //5. işlem bitiminde program sonlandırılıyor.
 }
 
+// 2 ve 5 nolu isterler için gerekli iş kodlarını barındıran metot.
 void CalcDistance(int operationType)
 {
     int avgIndex = 0;
@@ -1018,6 +1119,7 @@ void CalcDistance(int operationType)
     }
 }
 
+// 2 ve 5 nolu isterler için hesaplamaları ekrana basan metot
 void PrintCalcDistance(Document doc, int operationType)
 {
     if(operationType == 2)
@@ -1065,7 +1167,7 @@ void PrintCalcDistance(Document doc, int operationType)
             doc.farthestList[0].z, doc.farthestList[0].r,
             doc.farthestList[0].g, doc.farthestList[0].b);
 
-        sprintf(buf,"(%s) En Uzak Nokta (%d. Satir):%f %f %f %d %d %d\n",
+        sprintf(buf,"(%s) En Uzak Nokta (%d. Satir):%f %f %f %d %d %d\n\n",
             doc.currentFileName, doc.farthestList[1].lineNumber,
             doc.farthestList[1].x, doc.farthestList[1].y,
             doc.farthestList[1].z, doc.farthestList[1].r,
@@ -1083,14 +1185,14 @@ void PrintCalcDistance(Document doc, int operationType)
     {
         char buf[7];
         sprintf(buf,"%f", doc.itemsAvg);
-        char *finalString = ConcateString("(", doc.currentFileName, ") Noktalar arasi ortalama uzaklik : ",  buf);
+        char *finalString = ConcateString("(", doc.currentFileName, ") Noktalar arasi ortalama uzaklik : \n",  buf);
         fprintf (OutputFile, finalString ,OutputLineNumber);
         printf("(%s) Noktalar arasi ortalama uzaklik : %f\n", doc.currentFileName, doc.itemsAvg);
     }
     SaveOutput();
 }
 
-//istenen dökümanın içindeki satır sayısını getirir
+//istenen ascii dökümanın içindeki satır sayısını getirir
 int GetDatacount(char *filePath)
 {
    //Dosyadan okuma için file nesnesi
@@ -1131,6 +1233,7 @@ int GetDatacount(char *filePath)
    return dataCount;
 }
 
+//istenen binary dökümanın içindeki satır sayısını getirir
 int GetBinaryDataCount(char *filePath, Document doc)
 {
     FILE *file = fopen(filePath, "rb");
@@ -1170,7 +1273,6 @@ int GetBinaryDataCount(char *filePath, Document doc)
        }
        tempIndex++;
     }
-
     return rowCount;
 }
 
@@ -1190,23 +1292,25 @@ int GetFileCount(char directoryPath[], char fileExtention[])
        //dizin içindeki dosya sayısı kadar döngü başlıyor
        while ((ent = readdir (dir)) != NULL)
        {
-          //her dönüşte dosya adı için raden farklı bir yer ayrılıyor
-          char *fileName = (char *)malloc(strlen(ent->d_name)+1);
-          //dosya adı yeni değğişkene kopyalanıyor.
-          strcpy(fileName,ent->d_name);
+           if(strlen(ent->d_name) > 3)
+           {
+              //her dönüşte dosya adı için raden farklı bir yer ayrılıyor
+              char *fileName = (char *)malloc(strlen(ent->d_name)+1);
+              //dosya adı yeni değğişkene kopyalanıyor.
+              strcpy(fileName,ent->d_name);
 
-          //uzantıyı almak için dosya adı . lar üzerinden parçalanıyor.
-          char *ext = strrchr(fileName,'.');
-          if(ext)
-          {
-
-              //uzantı en üstte tanımlanan değişkenle eşleşiyor mu diye kontrol ediliyor.
-              if(strcmp(ext, FileExtention) == 0 && strcmp(tolower(fileName), OutputFileName) != 0)
+              //uzantıyı almak için dosya adı . lar üzerinden parçalanıyor.
+              char *ext = strrchr(fileName,'.');
+              if(ext && strlen(ext) > 1)
               {
-                  //eşleşen dosyalar için index 1 artırılıyor.
-                  fileCount++;
+                  //uzantı en üstte tanımlanan değişkenle eşleşiyor mu diye kontrol ediliyor.
+                  if(strcmp(ext, FileExtention) == 0 && strcmp(tolower(fileName), OutputFileName) != 0)
+                  {
+                      //eşleşen dosyalar için index 1 artırılıyor.
+                      fileCount++;
+                  }
               }
-          }
+           }
        }
 
        //iş bitince dosya kapatılıor.
@@ -1223,6 +1327,7 @@ int GetFileCount(char directoryPath[], char fileExtention[])
     return fileCount;
 }
 
+//hata link listine yeni hatalar eklemek için kullanılan metot
 void PushError(char *fileName, int lineNumber, char *message, int code)
 {
     ErrorMessage currentError;
@@ -1237,6 +1342,7 @@ void PushError(char *fileName, int lineNumber, char *message, int code)
     HeadError = node;
 }
 
+//output.nkt dosyasını oluşturmak için kullanılan metot
 void CreateOutputFile()
 {
     FILE * fp;
@@ -1245,16 +1351,18 @@ void CreateOutputFile()
     strcat(OutputFullPath, "\\");
     strcat(OutputFullPath, OutputFileName);
 
-    fp = fopen (OutputFullPath,"w");
+    fp = fopen (OutputFullPath,"w"); //tek bir output yazılacağı için her program başlangıcınde içi dolu ise w ile içeriği temizleniyor.
     OutputFile = fp;
 }
 
+//oluşturulan output.nkt dosyasına yazılanları kaydeden metot.
 void SaveOutput()
 {
     fclose(OutputFile);
-    OutputFile = fopen (OutputFullPath,"a");
+    OutputFile = fopen (OutputFullPath,"a"); //her bir kayıt işlemi sonrası dosya ekleme yani a modunda açılıyor
 }
 
+ //veirlen stringleri birlestiren helper metot
 char * ConcateString(char *str1, char *str2, char *str3, char *str4)
 {
     char *result = malloc(strlen(str1) + strlen(str2) + strlen(str3) + strlen(str4) + 10);
