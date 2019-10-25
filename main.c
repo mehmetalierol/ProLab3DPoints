@@ -125,8 +125,8 @@ void StartReading()
     char applicationPath[256]; //mevcut yolu tutmak için geçiçi değişken
     if (getcwd(applicationPath, sizeof(applicationPath)) != NULL)
     {
-       //DirectoryPath = malloc(sizeof(applicationPath)); //application path global değişkene atanıyor
-       //DirectoryPath = applicationPath;
+       DirectoryPath = malloc(sizeof(applicationPath)); //application path global değişkene atanıyor
+       DirectoryPath = applicationPath;
        CreateOutputFile(); //output dosyası oluşturuluyor
        printf("Uygulama Dizini : %s\n", DirectoryPath); //uygulama dizini ekrana basılıyor
        int appDirectoryFileCount = GetFileCount(DirectoryPath, FileExtention); //bulunan dizindeki nkt uzantılı dosyaların sayısı alınıyor
